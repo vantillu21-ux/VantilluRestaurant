@@ -1,0 +1,793 @@
+'use client';
+
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, ShoppingBag, Trash2, ArrowRight, CheckCircle, MapPin, Phone, User, Ticket } from 'lucide-react';
+import { useCart } from '../context/CartContext';
+
+interface CartDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
+  const {
+    cart,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    subtotal,
+    packagingFee,
+    deliveryFee,
+    gst,
+    discount,
+    grandTotal,
+    couponCode,
+    applyCoupon,
+    removeCoupon
+  } = useCart();
+
+  // Form states
+  const [couponInput, setCouponInput] = useState('');
+  const [couponError, setCouponError] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [tableNo, setTableNo] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'UPI'>('COD');
+  const [deliveryType, setDeliveryType] = useState<'Delivery' | 'DineIn' | 'Takeaway'>('Delivery');
+  const [locationChecking, setLocationChecking] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // ── Restaurant GPS coordinates ──────────────────────────────────────────────
+  // UPDATE these to your exact restaurant GPS pin before going live.
+  // Get them from Google Maps: right-click on your restaurant → "What's here?"
+  const RESTAURANT_LAT = 17.3616;   // ← replace with your exact latitude
+  const RESTAURANT_LNG = 78.5480;   // ← replace with your exact longitude
+  const DINE_IN_RADIUS_METERS = 150; // customers must be within 150m
+
+  /** Haversine great-circle distance between two GPS points (returns metres) */
+  const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000; // Earth radius in metres
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  /** Handles service mode selection. Dine-In requires GPS verification. */
+  const handleServiceModeChange = (type: string) => {
+    setLocationError(null);
+    if (type !== 'DineIn') {
+      setDeliveryType(type as any);
+      return;
+    }
+    // Dine-In selected — verify customer is physically inside the restaurant
+    if (!navigator.geolocation) {
+      setLocationError('Your browser does not support location access. Dine-In unavailable.');
+      return;
+    }
+    setLocationChecking(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const distance = haversineDistance(latitude, longitude, RESTAURANT_LAT, RESTAURANT_LNG);
+        setLocationChecking(false);
+        if (distance <= DINE_IN_RADIUS_METERS) {
+          setDeliveryType('DineIn');
+        } else {
+          setLocationError(
+            `You are not inside the Restaurant. You cannot place a Dine-In order. (${Math.round(distance)}m away)`
+          );
+        }
+      },
+      (err) => {
+        setLocationChecking(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setLocationError('Location access denied. Please allow location permission to place a Dine-In order.');
+        } else {
+          setLocationError('Unable to verify your location. Please try again or choose Delivery / Pickup.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+  
+  // Checkout & Submission States
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderConfirmed, setOrderConfirmed] = useState<any | null>(null);
+  const [showPhonePeModal, setShowPhonePeModal] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [specialInstructions, setSpecialInstructions] = useState('');
+  const [utrInput, setUtrInput] = useState('');
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+
+  const handleApplyCoupon = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCouponError(false);
+    const success = applyCoupon(couponInput);
+    if (!success) {
+      setCouponError(true);
+      setTimeout(() => setCouponError(false), 2000);
+    } else {
+      setCouponInput('');
+    }
+  };
+
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cart.length === 0) return;
+    if (!customerName || !customerPhone) {
+      alert('Please enter your name and phone number.');
+      return;
+    }
+    if (deliveryType === 'Delivery' && !customerAddress) {
+      alert('Please enter your delivery address.');
+      return;
+    }
+    if (deliveryType === 'DineIn' && !tableNo) {
+      alert('Please specify your table number.');
+      return;
+    }
+
+    if (paymentMethod === 'UPI') {
+      setShowPhonePeModal(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const orderPayload = {
+      customer_name: customerName,
+      phone: customerPhone,
+      address: deliveryType === 'Delivery' ? customerAddress : '',
+      items: cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        spice_level: item.spiceLevel,
+        notes: item.itemNotes,
+        portion: item.portion
+      })),
+      subtotal: subtotal,
+      packaging: packagingFee,
+      delivery_fee: deliveryFee,
+      discount: discount,
+      grand_total: grandTotal,
+      order_type: deliveryType,
+      notes: specialInstructions,
+      table_no: deliveryType === 'DineIn' ? tableNo : '',
+      payment_method: paymentMethod
+    };
+
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderPayload),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setOrderConfirmed(data.order);
+        clearCart();
+        // Clear customer inputs
+        setCustomerName('');
+        setCustomerPhone('');
+        setCustomerAddress('');
+      } else {
+        alert(data.message || 'Failed to place order.');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      alert(
+        'Could not connect to the server. Please check your internet connection and try again.\n\nIf the problem persists, call us directly to place your order.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+
+  const handleVerifyPayment = async () => {
+    if (utrInput.length < 6) {
+      setPaymentError('Please enter a valid UPI Ref No (UTR) to confirm payment.');
+      return;
+    }
+
+    setIsVerifyingPayment(true);
+    setPaymentError('');
+
+    const orderPayload = {
+      customer_name: customerName,
+      phone: customerPhone,
+      address: deliveryType === 'Delivery' ? customerAddress : '',
+      items: cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        spice_level: item.spiceLevel,
+        notes: item.itemNotes,
+        portion: item.portion
+      })),
+      subtotal: subtotal,
+      packaging: packagingFee,
+      delivery_fee: deliveryFee,
+      discount: discount,
+      grand_total: grandTotal,
+      order_type: deliveryType,
+      notes: specialInstructions,
+      table_no: deliveryType === 'DineIn' ? tableNo : '',
+      payment_method: 'UPI',
+      transaction_id: utrInput
+    };
+
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderPayload),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setOrderConfirmed(data.order);
+        setShowPhonePeModal(false);
+        setUtrInput('');
+        clearCart();
+        // Clear customer inputs
+        setCustomerName('');
+        setCustomerPhone('');
+        setCustomerAddress('');
+      } else {
+        setPaymentError(data.message || 'Failed to place order.');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setPaymentError(
+        'Could not connect to the server. Please check your connection and try again. Your cart has been preserved.'
+      );
+    } finally {
+      setIsVerifyingPayment(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.6 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+          />
+
+          {/* Slider Drawer */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-[#2E1A1C] border-l border-brand-gold/20 flex flex-col shadow-2xl overflow-hidden font-sans text-white"
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-brand-gold/15 flex justify-between items-center bg-black/25">
+              <div className="flex items-center gap-3">
+                <ShoppingBag size={20} className="text-brand-gold" />
+                <h2 className="text-lg font-bold font-serif uppercase tracking-widest text-brand-gold">
+                  Your Vantillu Cart
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setOrderConfirmed(null);
+                  onClose();
+                }}
+                className="p-2 text-white/60 hover:text-brand-gold cursor-pointer transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {orderConfirmed ? (
+                /* Order Receipt Mode */
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-center py-8 space-y-6"
+                >
+                  <div className="flex justify-center">
+                    <CheckCircle size={64} className="text-green-500 animate-bounce" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-2xl font-serif text-brand-gold font-bold">Happiness Ordered!</h3>
+                    <p className="text-white/60 text-xs mt-1 uppercase tracking-wider">
+                      Order ID: #VT-{orderConfirmed.id}
+                    </p>
+                  </div>
+
+                  <div className="bg-black/30 border border-brand-gold/20 rounded-2xl p-4 text-left space-y-3">
+                    <div className="flex justify-between text-xs border-b border-white/5 pb-2 text-white/50">
+                      <span>Customer</span>
+                      <span className="font-semibold text-white">{orderConfirmed.customer_name}</span>
+                    </div>
+                    <div className="flex justify-between text-xs border-b border-white/5 pb-2 text-white/50">
+                      <span>Type</span>
+                      <span className="font-semibold text-brand-gold">{orderConfirmed.order_type}</span>
+                    </div>
+                    <div className="flex justify-between text-xs border-b border-white/5 pb-2 text-white/50">
+                      <span>Total Amount</span>
+                      <span className="font-semibold text-brand-gold font-serif">₹{orderConfirmed.grand_total}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-white/50">
+                      <span>Status</span>
+                      <span className="font-bold text-green-400 animate-pulse">{orderConfirmed.status}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-xs text-white/40 leading-relaxed max-w-[280px] mx-auto">
+                    {orderConfirmed.payment_method === 'UPI' ? (
+                      <>
+                        <p className="text-amber-400/80 bg-amber-400/10 border border-amber-400/20 rounded-xl px-3 py-2 text-[10px]">
+                          ⏳ Payment pending verification. Our team will confirm your UPI payment and begin preparation shortly.
+                        </p>
+                        <p>📞 We will contact you at {orderConfirmed.phone} if there is any issue.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>✨ Our kitchen has started preparing your hot homemade feast with grandmother's love.</p>
+                        <p>📞 We will contact you at {orderConfirmed.phone} shortly.</p>
+                      </>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setOrderConfirmed(null);
+                      onClose();
+                    }}
+                    className="w-full bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-semibold py-3 px-6 rounded-xl cursor-pointer transition-all duration-300"
+                  >
+                    Done
+                  </button>
+                </motion.div>
+              ) : cart.length === 0 ? (
+                /* Empty Cart Mode */
+                <div className="h-full flex flex-col items-center justify-center text-center py-20 space-y-4 opacity-50">
+                  <ShoppingBag size={48} className="text-white/30" />
+                  <p className="text-sm font-serif italic text-white/60">Your cart is empty. Seed some delicacies!</p>
+                </div>
+              ) : (
+                /* Cart Items & Form Mode */
+                <>
+                  {/* Cart Items List */}
+                  <div className="space-y-4">
+                    {cart.map((item) => (
+                      <div
+                        key={item.cartId}
+                        className="flex gap-4 bg-black/20 p-3 rounded-2xl border border-white/5 items-center justify-between"
+                      >
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-12 h-12 object-contain bg-black/10 rounded-lg p-1"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-bold truncate">{item.name}</h4>
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                            <span className="text-brand-orange text-[10px] uppercase font-bold">{item.spiceLevel}</span>
+                            {item.portion !== 'Standard' && (
+                              <span className="bg-brand-gold/10 border border-brand-gold/20 text-brand-gold text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">{item.portion}</span>
+                            )}
+                            {item.itemNotes && (
+                              <span className="text-white/40 text-[9px] truncate">({item.itemNotes})</span>
+                            )}
+                          </div>
+                          <span className="text-brand-gold font-serif text-xs font-semibold">
+                            ₹{item.price}
+                          </span>
+                        </div>
+
+                        {/* Quantity adjusts */}
+                        <div className="flex items-center bg-black/30 border border-white/10 rounded-lg overflow-hidden">
+                          <button
+                            onClick={() => updateQuantity(item.cartId, item.quantity - 1)}
+                            className="p-1.5 text-brand-gold hover:bg-white/5 cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <span className="text-xs font-bold px-2">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.cartId, item.quantity + 1)}
+                            className="p-1.5 text-brand-gold hover:bg-white/5 cursor-pointer"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Remove */}
+                        <button
+                          onClick={() => removeFromCart(item.cartId)}
+                          className="text-white/40 hover:text-red-500 p-1.5 cursor-pointer transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Delivery / Pickup / Dine-In Selector */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-brand-gold uppercase tracking-wider font-semibold">
+                      Service Mode
+                    </label>
+                    <div className="grid grid-cols-3 bg-black/40 border border-white/10 p-1 rounded-xl">
+                      {[{ key: 'Delivery', label: 'Delivery' }, { key: 'Takeaway', label: 'Pickup' }, { key: 'DineIn', label: 'Dine-In' }].map(({ key, label }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          disabled={locationChecking && key === 'DineIn'}
+                          onClick={() => handleServiceModeChange(key)}
+                          className={`
+                            py-2 text-[10px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all duration-300
+                            ${deliveryType === key ? 'bg-brand-gold text-brand-brown' : 'text-white/60 hover:text-white'}
+                            ${locationChecking && key === 'DineIn' ? 'opacity-60 cursor-wait' : ''}
+                          `}
+                        >
+                          {locationChecking && key === 'DineIn' ? (
+                            <span className="flex items-center justify-center gap-1">
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                              Verifying
+                            </span>
+                          ) : label}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Dine-In location error */}
+                    {locationError && (
+                      <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2.5 mt-1">
+                        <span className="text-red-400 text-sm leading-none mt-0.5">📍</span>
+                        <p className="text-[10px] text-red-400 leading-relaxed font-semibold">{locationError}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Coupon section */}
+                  <form onSubmit={handleApplyCoupon} className="space-y-2">
+                    <label className="text-xs text-brand-gold uppercase tracking-wider font-semibold">
+                      Coupon Discount
+                    </label>
+                    {couponCode ? (
+                      <div className="flex justify-between items-center bg-green-950/30 border border-green-500/30 text-green-400 p-2.5 rounded-xl text-xs">
+                        <span className="flex items-center gap-2">
+                          <Ticket size={14} />
+                          Promo Active: <strong>{couponCode}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={removeCoupon}
+                          className="text-green-400/70 hover:text-green-400 font-bold underline cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="e.g. WELCOME50, VANTILLUHOME"
+                          value={couponInput}
+                          onChange={(e) => setCouponInput(e.target.value)}
+                          className="flex-1 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs focus:border-brand-gold outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-semibold text-xs py-2 px-4 rounded-xl cursor-pointer transition-colors"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    )}
+                    {couponError && (
+                      <p className="text-[10px] text-red-400">Invalid coupon code. Try WELCOME50 or VANTILLUHOME</p>
+                    )}
+                  </form>
+
+                  {/* Pricing breakdown */}
+                  <div className="bg-black/30 border border-white/5 rounded-2xl p-4 space-y-2.5 text-xs text-white/70">
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span className="font-serif">₹{subtotal}</span>
+                    </div>
+                    {packagingFee > 0 && (
+                      <div className="flex justify-between">
+                        <span>Packaging Charge</span>
+                        <span className="font-serif">₹{packagingFee}</span>
+                      </div>
+                    )}
+                    {deliveryFee > 0 && (
+                      <div className="flex justify-between">
+                        <span>Delivery Fee</span>
+                        <span className="font-serif">₹{deliveryFee}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>GST (5%)</span>
+                      <span className="font-serif">₹{gst}</span>
+                    </div>
+                    {discount > 0 && (
+                      <div className="flex justify-between text-green-400">
+                        <span>Coupon Discount</span>
+                        <span className="font-serif">-₹{discount}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-brand-gold font-bold text-sm border-t border-white/5 pt-2.5">
+                      <span>Grand Total</span>
+                      <span className="font-serif">₹{grandTotal}</span>
+                    </div>
+                  </div>
+
+                  {/* Checkout details Form */}
+                  <form onSubmit={handleCheckout} className="space-y-4 border-t border-white/5 pt-4">
+                    <h3 className="text-xs text-brand-gold uppercase tracking-widest font-semibold">
+                      Checkout Information
+                    </h3>
+
+                    {/* Customer Name */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-white/50 uppercase">Name</label>
+                      <div className="relative">
+                        <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                        <input
+                          type="text"
+                          required
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="your full name"
+                          className="w-full bg-black/30 border border-white/10 focus:border-brand-gold text-xs pl-9 pr-3 py-2.5 rounded-xl outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Customer Phone */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-white/50 uppercase">Phone Number</label>
+                      <div className="relative">
+                        <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                        <input
+                          type="tel"
+                          required
+                          disabled={isSubmitting}
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          placeholder="10-digit mobile number"
+                          className="w-full bg-black/30 border border-white/10 focus:border-brand-gold text-xs pl-9 pr-3 py-2.5 rounded-xl outline-none disabled:opacity-60"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Delivery Address OR Table No based on service mode */}
+                    {deliveryType === 'Delivery' ? (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-white/50 uppercase">Delivery Address</label>
+                        <div className="relative">
+                          <MapPin size={13} className="absolute left-3 top-3 text-white/40" />
+                          <textarea
+                            required
+                            value={customerAddress}
+                            onChange={(e) => setCustomerAddress(e.target.value)}
+                            placeholder="full street address, house no, landmark"
+                            rows={3}
+                            className="w-full bg-black/30 border border-white/10 focus:border-brand-gold text-xs pl-9 pr-3 py-2.5 rounded-xl outline-none resize-none"
+                          />
+                        </div>
+                      </div>
+                    ) : deliveryType === 'DineIn' ? (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-white/50 uppercase">Table Number</label>
+                        <input
+                          type="text"
+                          required
+                          value={tableNo}
+                          onChange={(e) => setTableNo(e.target.value)}
+                          placeholder="e.g. Table 5, Lounge A"
+                          className="w-full bg-black/30 border border-white/10 focus:border-brand-gold text-xs px-3 py-2.5 rounded-xl outline-none"
+                        />
+                      </div>
+                    ) : null}
+
+                    {/* General notes */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-white/50 uppercase">Order Note (Optional)</label>
+                      <input
+                        type="text"
+                        value={specialInstructions}
+                        onChange={(e) => setSpecialInstructions(e.target.value)}
+                        placeholder="any special instructions for delivery/chef"
+                        className="w-full bg-black/30 border border-white/10 focus:border-brand-gold text-xs px-3 py-2.5 rounded-xl outline-none"
+                      />
+                    </div>
+
+                    {/* Payment Method Selector */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-brand-gold uppercase tracking-wider font-semibold">
+                        Payment Method
+                      </label>
+                      <div className="grid grid-cols-2 bg-black/40 border border-white/10 p-1 rounded-xl">
+                        {[
+                          { id: 'COD', label: '💵 Cash on Delivery' },
+                          { id: 'UPI', label: '📲 Scan & Pay (UPI)' }
+                        ].map((method) => (
+                          <button
+                            key={method.id}
+                            type="button"
+                            onClick={() => setPaymentMethod(method.id as any)}
+                            className={`
+                              py-2.5 text-[9px] uppercase font-bold tracking-wider rounded-lg cursor-pointer transition-all duration-300
+                              ${paymentMethod === method.id ? 'bg-brand-gold text-brand-brown' : 'text-white/60 hover:text-white'}
+                            `}
+                          >
+                            {method.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Checkout Button */}
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !customerPhone || customerPhone.length < 10 || !customerName}
+                      className="w-full bg-brand-gold hover:bg-brand-gold/90 disabled:opacity-50 disabled:cursor-not-allowed text-brand-brown font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 active:scale-95 shadow-[0_4px_12px_rgba(212,175,55,0.2)] mt-6 text-sm"
+                    >
+                      {isSubmitting ? (
+                        'Processing order...'
+                      ) : (
+                        <>
+                          Proceed Checkout
+                          <ArrowRight size={16} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </>
+              )}
+              {showPhonePeModal && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-50 bg-[#251315] flex flex-col p-6 overflow-y-auto text-white border-l border-brand-gold/20"
+                >
+                  {/* Header */}
+                  <div className="flex justify-between items-center border-b border-brand-gold/15 pb-4 mb-6">
+                    <h3 className="font-serif text-brand-gold text-sm font-bold tracking-wider uppercase">
+                       Scan QR &amp; Pay (UPI)
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPhonePeModal(false);
+                        setUtrInput('');
+                        setPaymentError('');
+                      }}
+                      className="text-white/60 hover:text-brand-gold text-xs cursor-pointer transition-colors"
+                    >
+                      Cancel Payment
+                    </button>
+                  </div>
+
+                  {/* Amount Info */}
+                  <div className="bg-black/35 border border-brand-gold/15 rounded-2xl p-4 text-center space-y-1 mb-6">
+                    <p className="text-[10px] text-white/50 uppercase tracking-widest">Amount to Pay</p>
+                    <p className="text-3xl font-serif text-brand-gold font-bold">₹{grandTotal}</p>
+                    <p className="text-[9px] text-brand-orange uppercase font-bold tracking-wider">
+                      Payee: Meneni Sahithi
+                    </p>
+                  </div>
+
+                  {/* QR Code Segment */}
+                  <div className="flex flex-col items-center justify-center space-y-4 mb-6">
+                    <p className="text-[11px] text-white/70 text-center max-w-[280px] leading-relaxed">
+                      Scan with <strong>PhonePe, GPay, Paytm</strong> or any UPI app. Amount of <strong>₹{grandTotal}</strong> is pre-filled — do not change it.
+                    </p>
+
+                    <div className="bg-white p-3 rounded-2xl shadow-lg border-2 border-brand-gold/50">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=400d12&data=${encodeURIComponent(
+                          `upi://pay?pa=8008508234@ybl&pn=Meneni%20Sahithi&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`
+                        )}`}
+                        alt="PhonePe UPI Payment QR Code"
+                        className="w-40 h-40 object-contain"
+                      />
+                    </div>
+
+                    <p className="text-[9px] text-white/40 tracking-wider">
+                      UPI ID: 8008508234@ybl
+                    </p>
+                  </div>
+
+                  {/* UTR Reference Input */}
+                  <div className="space-y-2 mb-6">
+                    <label className="text-[10px] text-brand-gold uppercase tracking-wider font-semibold block text-center">
+                      Enter UPI Ref No (UTR) After Paying
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={20}
+                      placeholder="e.g. 629472049102"
+                      value={utrInput}
+                      onChange={(e) => {
+                        setPaymentError('');
+                        // Only allow digits
+                        const val = e.target.value.replace(/\D/g, '');
+                        setUtrInput(val);
+                      }}
+                      className="w-full bg-black/45 border border-white/10 focus:border-brand-gold text-xs px-3 py-2.5 rounded-xl outline-none text-white font-mono text-center tracking-widest"
+                    />
+                    <p className="text-[9px] text-white/30 text-center">Find this in your UPI app under payment history</p>
+                    {paymentError && (
+                      <p className="text-[10px] text-red-400 font-semibold text-center mt-1">
+                        {paymentError}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="space-y-3 mt-auto">
+                    {/* Intent Button for mobile */}
+                    <a
+                      href={`upi://pay?pa=8008508234@ybl&pn=Meneni%20Sahithi&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`}
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 active:scale-95 text-center text-xs uppercase tracking-wider shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                    >
+                      📲 Open UPI App to Pay
+                    </a>
+
+                    {/* Confirm Button */}
+                    <button
+                      type="button"
+                      disabled={isVerifyingPayment}
+                      onClick={handleVerifyPayment}
+                      className="w-full bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-bold py-3 px-4 rounded-xl cursor-pointer transition-all duration-300 active:scale-95 text-xs uppercase tracking-wider shadow-[0_4px_12px_rgba(212,175,55,0.2)] disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isVerifyingPayment ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-brand-brown" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Placing Order...
+                        </>
+                      ) : (
+                        'Confirm Order (Paid via UPI)'
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};

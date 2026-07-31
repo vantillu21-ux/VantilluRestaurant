@@ -1,0 +1,609 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUM DEFINITIONS
+// ==========================================
+
+enum UserRole {
+  OWNER
+  MANAGER
+  KITCHEN
+  CASHIER
+  DELIVERY
+  CUSTOMER
+}
+
+enum OrderType {
+  DELIVERY
+  PICKUP
+  DINE_IN
+  TABLE_RESERVATION
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  COOKING
+  PACKING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentGateway {
+  RAZORPAY
+  COD
+  PAY_AT_RESTAURANT
+  UPI_DIRECT
+}
+
+enum PaymentMethod {
+  UPI
+  GOOGLE_PAY
+  PHONEPE
+  PAYTM
+  CARD
+  NET_BANKING
+  WALLET
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PortionType {
+  STANDARD
+  HALF_FULL
+  SINGLE_FULL
+  FOUR_SIZES
+}
+
+enum SpiceLevel {
+  MILD
+  MEDIUM
+  SPICY
+  EXTRA_SPICY
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  REJECTED
+}
+
+enum PartyOrderStatus {
+  INQUIRY
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+// ==========================================
+// USER, ROLE & AUTHENTICATION MODELS
+// ==========================================
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  phone        String?        @unique
+  password     String
+  fullName     String
+  avatar       String?
+  role         UserRole       @default(CUSTOMER)
+  isActive     Boolean        @default(true)
+  isVerified   Boolean        @default(false)
+  isDeleted    Boolean        @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  customer     Customer?
+  roles        Role[]         @relation("UserRoles")
+  sessions     Session[]
+  refreshTokens RefreshToken[]
+  activityLogs ActivityLog[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+}
+
+model Customer {
+  id            String            @id @default(uuid())
+  userId        String            @unique
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loyaltyPoints Int               @default(0)
+  totalSpend    Float             @default(0.0)
+  totalOrders   Int               @default(0)
+  isBlacklisted Boolean           @default(false)
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  addresses     CustomerAddress[]
+  orders        Order[]
+  reservations  Reservation[]
+  partyOrders   PartyOrder[]
+  reviews       Review[]
+  favorites     Favorite[]
+  pointLogs     LoyaltyPoint[]
+
+  @@index([userId])
+}
+
+model CustomerAddress {
+  id           String   @id @default(uuid())
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label        String   @default("Home") // Home, Work, Other
+  addressLine1 String
+  addressLine2 String?
+  landmark     String?
+  city         String   @default("Hyderabad")
+  state        String   @default("Telangana")
+  pincode      String   @default("500070")
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders       Order[]
+
+  @@index([customerId])
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  users       User[]       @relation("UserRoles")
+  permissions Permission[] @relation("RolePermissions")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  action      String   @unique // e.g., 'menu:create', 'orders:accept'
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles       Role[]   @relation("RolePermissions")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  userAgent String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ==========================================
+// MENU CATALOG MODELS
+// ==========================================
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+  image       String?
+  displayOrder Int       @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  menuItems   MenuItem[]
+
+  @@index([displayOrder])
+}
+
+model MenuItem {
+  id           String      @id @default(uuid())
+  categoryId   String
+  category     Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name         String
+  description  String
+  isVeg        Boolean     @default(true)
+  cuisine      String      @default("Indian")
+  spiceLevel   SpiceLevel  @default(MEDIUM)
+  portionType  PortionType @default(STANDARD)
+  prepTime     String      @default("15 mins")
+  rating       Float       @default(4.5)
+  price        Float       @default(0.0)
+  halfPrice    Float?
+  fullPrice    Float?
+  singlePrice  Float?
+  familyPrice  Float?
+  jumboPrice   Float?
+  isBestSeller Boolean     @default(false)
+  isChefSpecial Boolean    @default(false)
+  isAvailable  Boolean     @default(true)
+  isDeleted    Boolean     @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  variants     MenuVariant[]
+  images       MenuImage[]
+  orderItems   OrderItem[]
+  favorites    Favorite[]
+  stock        StockAvailability?
+  kitchenQueue KitchenQueue[]
+
+  @@index([categoryId])
+  @@index([isAvailable])
+  @@index([isVeg])
+}
+
+model MenuVariant {
+  id         String   @id @default(uuid())
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  name       String   // e.g. "Family Pack", "Extra Cheese"
+  price      Float
+  isAvailable Boolean @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([menuItemId])
+}
+
+model MenuImage {
+  id         String   @id @default(uuid())
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  imageUrl   String
+  publicId   String?  // Cloudinary Public ID
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([menuItemId])
+}
+
+model StockAvailability {
+  id         String   @id @default(uuid())
+  menuItemId String   @unique
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  inStock    Boolean  @default(true)
+  quantity   Int?
+  updatedAt  DateTime @updatedAt
+}
+
+// ==========================================
+// ORDER & TRANSACTION MODELS
+// ==========================================
+
+model Order {
+  id              String         @id @default(uuid())
+  orderNumber     String         @unique // e.g. VAN-20260728-001
+  customerId      String?
+  customer        Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  addressId       String?
+  address         CustomerAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  guestName       String?
+  guestPhone      String?
+  orderType       OrderType      @default(DELIVERY)
+  status          OrderStatus    @default(PENDING)
+  subTotal        Float
+  gstAmount       Float          @default(0.0)
+  packingCharge   Float          @default(0.0)
+  deliveryCharge  Float          @default(0.0)
+  discountAmount  Float          @default(0.0)
+  grandTotal      Float
+  couponCode      String?
+  notes           String?
+  estimatedTime   String?        @default("30-40 mins")
+  tableNumber     String?
+  isPaid          Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  items           OrderItem[]
+  payments        Payment[]
+  kitchenQueue    KitchenQueue[]
+
+  @@index([orderNumber])
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId  String
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id])
+  name        String
+  portion     String   @default("Standard")
+  quantity    Int      @default(1)
+  unitPrice   Float
+  totalPrice  Float
+  notes       String?
+
+  @@index([orderId])
+}
+
+model Payment {
+  id                   String         @id @default(uuid())
+  orderId              String
+  order                Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  gateway              PaymentGateway @default(RAZORPAY)
+  method               PaymentMethod  @default(UPI)
+  amount               Float
+  currency             String         @default("INR")
+  status               PaymentStatus  @default(PENDING)
+  razorpayOrderId      String?        @unique
+  razorpayPaymentId    String?        @unique
+  razorpaySignature    String?
+  transactionReference String?
+  refundId             String?
+  failureReason        String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([orderId])
+  @@index([razorpayOrderId])
+}
+
+model KitchenQueue {
+  id          String      @id @default(uuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId  String?
+  menuItem    MenuItem?   @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  status      OrderStatus @default(PREPARING)
+  priority    Int         @default(1)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// ==========================================
+// RESERVATIONS & EVENTS
+// ==========================================
+
+model Reservation {
+  id           String            @id @default(uuid())
+  customerId   String?
+  customer     Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  guestName    String
+  guestPhone   String
+  guestEmail   String?
+  guestCount   Int               @default(2)
+  bookingDate  DateTime
+  bookingTime  String
+  specialNotes String?
+  status       ReservationStatus @default(PENDING)
+  tableNumber  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([bookingDate])
+  @@index([status])
+}
+
+model PartyOrder {
+  id           String           @id @default(uuid())
+  customerId   String?
+  customer     Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  name         String
+  phone        String
+  eventType    String           // Wedding, Birthday, Corporate
+  eventDate    DateTime
+  guestCount   Int
+  budget       Float?
+  requirements String
+  status       PartyOrderStatus @default(INQUIRY)
+  ownerNotes   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([eventDate])
+  @@index([status])
+}
+
+// ==========================================
+// MARKETING, REVIEWS & DISCOUNTS
+// ==========================================
+
+model Coupon {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  description   String?
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float
+  minOrderValue Float        @default(0.0)
+  maxDiscount   Float?
+  usageLimit    Int?
+  usageCount    Int          @default(0)
+  expiresAt     DateTime
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([code])
+}
+
+model Offer {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  imageUrl    String?
+  bannerUrl   String?
+  code        String?
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Review {
+  id         String    @id @default(uuid())
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  guestName  String
+  rating     Int       @default(5)
+  comment    String
+  adminReply String?
+  isApproved Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([rating])
+}
+
+model Favorite {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([customerId, menuItemId])
+}
+
+model LoyaltyPoint {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  points      Int
+  type        String   // EARNED, REDEEMED
+  description String
+  createdAt   DateTime @default(now())
+
+  @@index([customerId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  recipient String   // CUSTOMER, KITCHEN, OWNER
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ==========================================
+// RESTAURANT CMS & SYSTEM SETTINGS
+// ==========================================
+
+model RestaurantSetting {
+  id             String   @id @default(uuid())
+  restaurantName String   @default("VANTILLU Multi Cuisine Family Restaurant")
+  logoUrl        String?
+  phone          String   @default("+91 98765 43210")
+  whatsapp       String   @default("+91 98765 43210")
+  email          String   @default("contact@vantillu.com")
+  address        String   @default("BN Reddy Nagar, Hyderabad, Telangana 500070")
+  gstNumber      String?  @default("36AAAAA0000A1Z5")
+  openingHours   String   @default("11:00 AM - 11:00 PM")
+  packingCharge  Float    @default(25.0)
+  deliveryCharge Float    @default(40.0)
+  gstPercent     Float    @default(5.0)
+  updatedAt      DateTime @updatedAt
+}
+
+model DeliveryCharge {
+  id            String   @id @default(uuid())
+  minDistanceKm Float    @default(0.0)
+  maxDistanceKm Float
+  charge        Float
+  createdAt     DateTime @default(now())
+}
+
+model Tax {
+  id         String   @id @default(uuid())
+  name       String   // CGST, SGST
+  percentage Float
+  isActive   Boolean  @default(true)
+}
+
+model Banner {
+  id          String   @id @default(uuid())
+  title       String
+  subtitle    String?
+  imageUrl    String
+  targetUrl   String?
+  displayOrder Int     @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Gallery {
+  id          String   @id @default(uuid())
+  title       String
+  imageUrl    String
+  category    String?
+  createdAt   DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Analytics {
+  id           String   @id @default(uuid())
+  date         DateTime @unique
+  totalOrders  Int      @default(0)
+  totalRevenue Float    @default(0.0)
+  delivered    Int      @default(0)
+  cancelled    Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
