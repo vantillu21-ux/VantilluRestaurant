@@ -8,7 +8,8 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+if os.path.exists(".env"):
+    load_dotenv()
 
 from config import config_by_name
 from extensions import db, migrate, limiter, talisman
@@ -126,7 +127,7 @@ def create_app(config_name=None):
     raw_db_url = os.environ.get('DATABASE_URL')
     if not raw_db_url:
         logger.error("DATABASE_URL is missing from environment. Application cannot start.")
-        sys.exit(1)
+        raise ValueError("DATABASE_URL is missing from environment.")
         
     database_url = sanitize_and_route_db_url(raw_db_url)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url

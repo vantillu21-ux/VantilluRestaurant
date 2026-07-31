@@ -12,8 +12,9 @@ class BaseConfig:
     # Pool pre-ping and recycle prevent stale connections to Supabase (300s idle timeout)
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,
-        "pool_recycle": 280,
-        "pool_timeout": 30,
+        "pool_recycle": 180,
+        "pool_size": 5,
+        "max_overflow": 5,
     }
     
     # Supabase Configuration
@@ -48,13 +49,6 @@ class ProductionConfig(BaseConfig):
     DEBUG = False
     TESTING = False
     ENV = 'production'
-    
-    # Production connection pool: larger pool for multi-worker Gunicorn serving
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        **BaseConfig.SQLALCHEMY_ENGINE_OPTIONS,
-        "pool_size": 10,
-        "max_overflow": 20,
-    }
 
 config_by_name = {
     'development': DevelopmentConfig,
