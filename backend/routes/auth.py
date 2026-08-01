@@ -44,7 +44,16 @@ def login():
         is_valid_fallback = False
         if admin:
             if admin.password_hash:
-                is_valid_fallback = bcrypt.checkpw(password.encode('utf-8'), admin.password_hash.encode('utf-8'))
+                try:
+                    # Check if it's a valid bcrypt hash before comparing
+                    if admin.password_hash.startswith('$2'):
+                        is_valid_fallback = bcrypt.checkpw(password.encode('utf-8'), admin.password_hash.encode('utf-8'))
+                    else:
+                        # Handle case where database has plaintext password (legacy)
+                        is_valid_fallback = (password == admin.password_hash)
+                except ValueError as e:
+                    audit_logger.error(f"Bcrypt validation error for user {username}: {e}")
+                    is_valid_fallback = False
             elif password == 'vantillu123' and username == 'admin':
                 is_valid_fallback = True
 
@@ -160,7 +169,7 @@ def test_connection():
     }), 200
 
 @auth_bp.route('/admin/forgot-password', methods=['POST', 'OPTIONS'])
-@limiter.limit("5/minute")
+@limiter.limit("20/minute")
 def forgot_password():
     """Initiates password reset by sending an OTP."""
     if request.method == 'OPTIONS':
@@ -233,7 +242,7 @@ def verify_otp():
         return jsonify({"message": "Invalid OTP"}), 400
 
 @auth_bp.route('/admin/reset-password', methods=['POST', 'OPTIONS'])
-@limiter.limit("5/minute")
+@limiter.limit("20/minute")
 def reset_password():
     """Resets an admin's password."""
     if request.method == 'OPTIONS':
