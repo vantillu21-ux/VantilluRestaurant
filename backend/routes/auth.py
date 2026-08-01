@@ -207,8 +207,9 @@ def create_user():
         
         return jsonify({
             "success": False,
-            "message": "Unexpected Server Error",
-            "details": str(e)
+            "exception": type(e).__name__,
+            "message": str(e),
+            "traceback": tb
         }), 500
 
 @auth_bp.route('/admin/users/<int:user_id>', methods=['PUT'])
