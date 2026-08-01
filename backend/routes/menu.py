@@ -19,7 +19,7 @@ def clear_menu_cache():
     menu_cache["data"] = None
     menu_cache["timestamp"] = 0
 
-@menu_bp.route('', methods=['GET'])
+@menu_bp.route('/menu', methods=['GET'])
 def get_menu():
     """Retrieves all menu items (with 60s in-memory caching)."""
     import time

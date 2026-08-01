@@ -231,6 +231,11 @@ def create_app(config_name=None):
             
         return jsonify(response), status_code
 
+    with app.app_context():
+        logger.info("=== REGISTERED ROUTES ===")
+        for rule in app.url_map.iter_rules():
+            logger.info(f"{rule.methods} {rule}")
+
     return app
 
 # Instantiate the app instance (used by Gunicorn)
