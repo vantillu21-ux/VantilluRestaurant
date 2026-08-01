@@ -1,4 +1,5 @@
 import random
+import secrets
 from flask import Blueprint, request, jsonify
 from extensions import db, limiter
 from repositories.admin_repository import AdminRepository
@@ -420,16 +421,14 @@ def forgot_password():
         audit_logger.info(f"[RESET_PASSWORD] Username found: {username}")
         admin = AdminRepository.get_by_username(username)
         if not admin:
-            # Return success to prevent user enumeration
             return jsonify({
-                "success": True,
-                "message": "If the user exists, an OTP has been sent.",
-                "data": {}
-            }), 200
+                "success": False,
+                "message": "User not found"
+            }), 404
             
         audit_logger.info(f"[RESET_PASSWORD] Email found: {admin.email}")
             
-        otp = str(random.randint(100000, 999999))
+        otp = str(100000 + secrets.randbelow(900000))
         otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
         
@@ -446,13 +445,17 @@ def forgot_password():
         if admin.username == 'admin':
             recipient = 'vantillu21@gmail.com'
 
-        EmailService.send_otp_email(recipient, otp)
+        success = EmailService.send_otp_email(recipient, otp)
+        if not success:
+            return jsonify({
+                "success": False,
+                "message": "Unable to send OTP email."
+            }), 500
         
         audit_logger.info(f"[RESET_PASSWORD] OTP sent to stored email: {recipient}")
         return jsonify({
             "success": True,
-            "message": "If the user exists, an OTP has been sent.",
-            "data": {}
+            "message": "OTP sent successfully"
         }), 200
     except Exception as e:
         import traceback
@@ -496,14 +499,14 @@ def verify_otp():
     if not token or token.attempts >= 5:
         return jsonify({
             "success": False,
-            "message": "Bad Request",
+            "message": "Expired OTP",
             "details": "Invalid or expired OTP"
         }), 400
         
     if token.expires_at < datetime.datetime.utcnow():
         return jsonify({
             "success": False,
-            "message": "Bad Request",
+            "message": "Expired OTP",
             "details": "OTP expired"
         }), 400
         
@@ -519,9 +522,9 @@ def verify_otp():
         db.session.commit()
         return jsonify({
             "success": False,
-            "message": "Bad Request",
+            "message": "Wrong OTP",
             "details": "Invalid OTP"
-        }), 400
+        }), 401
 
 @auth_bp.route('/admin/reset-password', methods=['POST', 'OPTIONS'])
 @limiter.limit("20/minute")
@@ -555,7 +558,7 @@ def reset_password():
     if not token or token.attempts >= 5 or token.expires_at < datetime.datetime.utcnow():
         return jsonify({
             "success": False,
-            "message": "Bad Request",
+            "message": "Expired OTP",
             "details": "Invalid or expired OTP"
         }), 400
         
@@ -564,9 +567,9 @@ def reset_password():
         db.session.commit()
         return jsonify({
             "success": False,
-            "message": "Bad Request",
+            "message": "Wrong OTP",
             "details": "Invalid OTP"
-        }), 400
+        }), 401
         
     try:
         if admin.supabase_user_id:
