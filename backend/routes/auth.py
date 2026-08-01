@@ -14,10 +14,13 @@ from services.email_service import EmailService
 
 auth_bp = Blueprint('auth', __name__)
 
-@auth_bp.route('/admin/login', methods=['POST'])
+@auth_bp.route('/admin/login', methods=['POST', 'OPTIONS'])
 @limiter.limit("50/minute")
 def login():
     """Handles admin staff sign-in by authenticating against Supabase Auth service."""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     data = validate_login_payload(request.get_json())
     username = data['username'] # treats username as email for Supabase Auth
     password = data['password']
@@ -156,10 +159,13 @@ def test_connection():
         "message": "Vantillu Backend is running!"
     }), 200
 
-@auth_bp.route('/admin/forgot-password', methods=['POST'])
+@auth_bp.route('/admin/forgot-password', methods=['POST', 'OPTIONS'])
 @limiter.limit("5/minute")
 def forgot_password():
     """Initiates password reset by sending an OTP."""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     data = request.get_json()
     username = data.get('username')
     
@@ -193,10 +199,13 @@ def forgot_password():
     audit_logger.info(f"Password reset OTP generated for: {username}")
     return jsonify({"message": "If the user exists, an OTP has been sent."}), 200
 
-@auth_bp.route('/admin/verify-otp', methods=['POST'])
+@auth_bp.route('/admin/verify-otp', methods=['POST', 'OPTIONS'])
 @limiter.limit("10/minute")
 def verify_otp():
     """Verifies the provided OTP."""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     data = request.get_json()
     username = data.get('username')
     otp = data.get('otp')
@@ -223,10 +232,13 @@ def verify_otp():
         db.session.commit()
         return jsonify({"message": "Invalid OTP"}), 400
 
-@auth_bp.route('/admin/reset-password', methods=['POST'])
+@auth_bp.route('/admin/reset-password', methods=['POST', 'OPTIONS'])
 @limiter.limit("5/minute")
 def reset_password():
     """Resets an admin's password."""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     data = request.get_json()
     username = data.get('username')
     otp = data.get('otp')
