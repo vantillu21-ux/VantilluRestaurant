@@ -22,13 +22,17 @@ def login():
         return '', 204
         
     data = validate_login_payload(request.get_json())
-    username = data['username'] # treats username as email for Supabase Auth
+    username = data['username'] 
     password = data['password']
+    
+    # We must fetch the local admin first to get their mapped email
+    admin = AdminRepository.get_by_username(username)
+    login_email = admin.email if admin and admin.email else username
     
     try:
         supabase_client = SupabaseAuthService.get_client()
         auth_res = supabase_client.auth.sign_in_with_password({
-            "email": username,
+            "email": login_email,
             "password": password
         })
         
@@ -39,8 +43,6 @@ def login():
             
     except Exception as e:
         # Fallback master validation check for local offline tests/debugging/resets
-        admin = AdminRepository.get_by_username(username)
-        
         is_valid_fallback = False
         if admin:
             if admin.password_hash:
@@ -105,6 +107,15 @@ def create_user():
         raw_json = request.get_json()
         audit_logger.info(f"[CREATE_USER] 1. Raw request JSON: {raw_json}")
         
+        # Pre-process raw_json to generate email if missing
+        raw_json = raw_json or {}
+        username_raw = raw_json.get('username', '')
+        email_raw = raw_json.get('email', '')
+        
+        if username_raw and not email_raw:
+            raw_json['email'] = f"{username_raw}@vantillu.restaurant"
+            audit_logger.info(f"[CREATE_USER] Generated email: {raw_json['email']}")
+            
         # Validation Phase
         from schemas.auth import validate_staff_payload
         from utils.exceptions import ValidationException
@@ -123,6 +134,7 @@ def create_user():
             }), 400
             
         username = data['username']
+        email = data['email']
         password = data['password']
         role = data.get('role', 'Admin')
         permissions = data.get('permissions', 'all')
@@ -149,7 +161,7 @@ def create_user():
         
         try:
             auth_user = supabase_admin.auth.admin.create_user({
-                "email": username,
+                "email": email,
                 "password": password,
                 "email_confirm": True
             })
@@ -172,6 +184,7 @@ def create_user():
         
         insert_payload = {
             "username": username,
+            "email": email,
             "role": role,
             "permissions": permissions,
             "password_hash": None,
@@ -298,8 +311,8 @@ def forgot_password():
     db.session.commit()
     
     # Send email
-    recipient = username if '@' in username else 'vantillu21@gmail.com'
-    if recipient == 'admin':
+    recipient = admin.email if admin.email else 'vantillu21@gmail.com'
+    if admin.username == 'admin':
         recipient = 'vantillu21@gmail.com'
 
     EmailService.send_otp_email(recipient, otp)

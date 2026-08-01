@@ -162,8 +162,12 @@ def create_app(config_name=None):
             from models.admin import Admin
             admins = Admin.query.all()
             for admin in admins:
+                if not admin.email:
+                    admin.email = f"{admin.username}@vantillu.restaurant"
+                    logger.info(f"MIGRATION: Auto-assigned email for legacy admin: {admin.email}")
                 if not admin.supabase_user_id:
                     logger.warning(f"SYNC WARNING: Missing supabase_user_id for admin: {admin.username}")
+            db.session.commit()
         except Exception as e:
             logger.error(f"Startup Sync validation failed: {e}")
     

@@ -5,7 +5,8 @@ class Admin(db.Model):
     __tablename__ = 'admins'
     
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False) # holds the admin's email for Supabase Auth matching
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=True) # Used for Supabase Auth matching
     password_hash = db.Column(db.String(200), nullable=True) # nullable as we shift auth completely to Supabase
     supabase_user_id = db.Column(db.String(255), unique=True, nullable=True)
     role = db.Column(db.String(80), default='Admin')
@@ -16,6 +17,7 @@ class Admin(db.Model):
         return {
             'id': self.id,
             'username': self.username,
+            'email': self.email,
             'supabase_user_id': self.supabase_user_id,
             'role': self.role,
             'permissions': self.permissions,
