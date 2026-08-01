@@ -20,6 +20,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
     subtotal,
     packagingFee,
     deliveryFee,
+    setDeliveryFee,
     gst,
     discount,
     grandTotal,
@@ -74,38 +75,60 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  /** Handles service mode selection. Dine-In requires GPS verification. */
+  /** Handles service mode selection. Dine-In and Delivery require GPS verification. */
   const handleServiceModeChange = (type: string) => {
     setLocationError(null);
-    if (type !== 'DineIn') {
-      setDeliveryType(type as any);
+    
+    if (type === 'Takeaway') {
+      setDeliveryType('Takeaway');
+      setDeliveryFee(0);
       return;
     }
-    // Dine-In selected — verify customer is physically inside the restaurant
+
     if (!navigator.geolocation) {
-      setLocationError('Your browser does not support location access. Dine-In unavailable.');
+      if (type === 'DineIn') setLocationError('Your browser does not support location access. Dine-In unavailable.');
+      if (type === 'Delivery') {
+        setDeliveryType('Delivery');
+        setDeliveryFee(30); // fallback
+      }
       return;
     }
+    
     setLocationChecking(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         const distance = haversineDistance(latitude, longitude, RESTAURANT_LAT, RESTAURANT_LNG);
         setLocationChecking(false);
-        if (distance <= DINE_IN_RADIUS_METERS) {
-          setDeliveryType('DineIn');
-        } else {
-          setLocationError(
-            `You are not inside the Restaurant. You cannot place a Dine-In order. (${Math.round(distance)}m away)`
-          );
+        
+        if (type === 'DineIn') {
+          if (distance <= DINE_IN_RADIUS_METERS) {
+            setDeliveryType('DineIn');
+          } else {
+            setLocationError(`You are not inside the Restaurant. You cannot place a Dine-In order. (${Math.round(distance)}m away)`);
+          }
+        } else if (type === 'Delivery') {
+          setDeliveryType('Delivery');
+          if (distance <= 2000) {
+            setDeliveryFee(0);
+          } else {
+            const extraKms = (distance - 2000) / 1000;
+            const calcFee = 15 + (extraKms * 5); // 15 base + 5 per extra km
+            setDeliveryFee(Math.min(Math.max(Math.round(calcFee), 15), 30));
+          }
         }
       },
       (err) => {
         setLocationChecking(false);
-        if (err.code === err.PERMISSION_DENIED) {
-          setLocationError('Location access denied. Please allow location permission to place a Dine-In order.');
-        } else {
-          setLocationError('Unable to verify your location. Please try again or choose Delivery / Pickup.');
+        if (type === 'DineIn') {
+          if (err.code === err.PERMISSION_DENIED) {
+            setLocationError('Location access denied. Please allow location permission to place a Dine-In order.');
+          } else {
+            setLocationError('Unable to verify your location. Please try again or choose Delivery / Pickup.');
+          }
+        } else if (type === 'Delivery') {
+          setDeliveryType('Delivery');
+          setDeliveryFee(30); // fallback if location denied
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -560,73 +583,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                     )}
                   </div>
 
-                  {/* Coupon section */}
-                  <form onSubmit={handleApplyCoupon} className="space-y-2">
-                    <label className="text-xs text-brand-gold uppercase tracking-wider font-semibold">
-                      Coupon Discount
-                    </label>
-                    {couponCode ? (
-                      <div className="flex justify-between items-center bg-green-950/30 border border-green-500/30 text-green-400 p-2.5 rounded-xl text-xs">
-                        <span className="flex items-center gap-2">
-                          <Ticket size={14} />
-                          Promo Active: <strong>{couponCode}</strong>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={removeCoupon}
-                          className="text-green-400/70 hover:text-green-400 font-bold underline cursor-pointer"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="e.g. WELCOME50, VANTILLUHOME"
-                          value={couponInput}
-                          onChange={(e) => setCouponInput(e.target.value)}
-                          className="flex-1 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs focus:border-brand-gold outline-none"
-                        />
-                        <button
-                          type="submit"
-                          className="bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-semibold text-xs py-2 px-4 rounded-xl cursor-pointer transition-colors"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    )}
-                    {couponError && (
-                      <p className="text-[10px] text-red-400">Invalid coupon code. Try WELCOME50 or VANTILLUHOME</p>
-                    )}
-                  </form>
-
                   {/* Pricing breakdown */}
                   <div className="bg-black/30 border border-white/5 rounded-2xl p-4 space-y-2.5 text-xs text-white/70">
                     <div className="flex justify-between">
                       <span>Subtotal</span>
                       <span className="font-serif">₹{subtotal}</span>
                     </div>
-                    {packagingFee > 0 && (
-                      <div className="flex justify-between">
-                        <span>Packaging Charge</span>
-                        <span className="font-serif">₹{packagingFee}</span>
-                      </div>
-                    )}
                     {deliveryFee > 0 && (
                       <div className="flex justify-between">
                         <span>Delivery Fee</span>
                         <span className="font-serif">₹{deliveryFee}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span>GST (5%)</span>
-                      <span className="font-serif">₹{gst}</span>
-                    </div>
-                    {discount > 0 && (
-                      <div className="flex justify-between text-green-400">
-                        <span>Coupon Discount</span>
-                        <span className="font-serif">-₹{discount}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-brand-gold font-bold text-sm border-t border-white/5 pt-2.5">

@@ -24,6 +24,7 @@ interface CartContextType {
   subtotal: number;
   packagingFee: number;
   deliveryFee: number;
+  setDeliveryFee: (fee: number) => void;
   gst: number;
   discount: number;
   grandTotal: number;
@@ -46,6 +47,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cart, setCart] = useState<CartItem[]>([]);
   const [couponCode, setCouponCode] = useState<string>('');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
   const [deliveryType, setDeliveryType] = useState<'Delivery' | 'Pickup' | 'Dine-In'>('Delivery');
   const [tableNo, setTableNo] = useState<string>('');
   const [specialInstructions, setSpecialInstructions] = useState<string>('');
@@ -145,9 +147,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Calculations
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const packagingFee = subtotal > 0 && deliveryType !== 'Dine-In' ? 30 : 0;
-  const deliveryFee = subtotal > 0 && deliveryType === 'Delivery' ? 50 : 0;
-  const gst = Math.round(subtotal * 0.05 * 100) / 100; // 5% GST
+  const packagingFee = 0; // Removed per request
+  const gst = 0; // Removed per request
   
   // Calculate discount based on subtotal
   const discount = Math.round(subtotal * (discountPercent / 100) * 100) / 100;
@@ -165,6 +166,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subtotal,
         packagingFee,
         deliveryFee,
+        setDeliveryFee,
         gst,
         discount,
         grandTotal,
