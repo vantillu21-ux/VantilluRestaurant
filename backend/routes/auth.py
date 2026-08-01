@@ -98,6 +98,10 @@ def create_user():
     if request.method == 'OPTIONS':
         return '', 204
         
+    import os
+    import traceback
+    
+    audit_logger.info(f"[CREATE_USER] 1. Incoming request payload: {request.get_json()}")
     data = validate_staff_payload(request.get_json())
     username = data['username']
     password = data['password']
@@ -109,30 +113,70 @@ def create_user():
         return jsonify({"message": "Username/email already exists"}), 400
         
     try:
-        supabase_admin = SupabaseAuthService.get_admin_client()
-        auth_user = supabase_admin.auth.admin.create_user({
-            "email": username,
-            "password": password,
-            "email_confirm": True
-        })
-        supabase_user_id = auth_user.user.id
+        audit_logger.info("[CREATE_USER] 2. Supabase client initialization starting")
         
-        new_user = AdminRepository.create(
+        url_present = bool(os.environ.get("SUPABASE_URL"))
+        key_present = bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+        audit_logger.info(f"[CREATE_USER] 3. SUPABASE_URL present: {url_present}")
+        audit_logger.info(f"[CREATE_USER] 4. SUPABASE_SERVICE_ROLE_KEY present: {key_present}")
+        
+        supabase_admin = SupabaseAuthService.get_admin_client()
+        
+        audit_logger.info(f"[CREATE_USER] 5. Call to supabase.auth.admin.create_user() for {username}")
+        
+        try:
+            auth_user = supabase_admin.auth.admin.create_user({
+                "email": username,
+                "password": password,
+                "email_confirm": True
+            })
+        except Exception as sb_err:
+            audit_logger.error(f"[CREATE_USER] Supabase error: {str(sb_err)}")
+            return jsonify({
+                "success": False,
+                "error": str(sb_err)
+            }), 400
+            
+        audit_logger.info(f"[CREATE_USER] 6. Full Supabase response: {auth_user}")
+        
+        supabase_user_id = getattr(auth_user, 'user', auth_user).id
+        audit_logger.info(f"[CREATE_USER] 7. Extracted user.id: {supabase_user_id}")
+        
+        audit_logger.info("[CREATE_USER] 8. Database INSERT into admins starting")
+        
+        # Doing manual insert to log commit/rollback
+        from models.admin import Admin
+        from extensions import db
+        new_user = Admin(
             username=username,
             role=role,
             permissions=permissions,
             password_hash=None,
             supabase_user_id=supabase_user_id
         )
+        db.session.add(new_user)
+        
+        try:
+            db.session.commit()
+            audit_logger.info("[CREATE_USER] 9. Commit successful")
+        except Exception as db_err:
+            db.session.rollback()
+            audit_logger.error("[CREATE_USER] 10. Rollback triggered due to DB error")
+            raise db_err
+            
         audit_logger.info(f"Staff user created by {request.current_user.username}: {username} ({role})")
         return jsonify({
             "message": "Staff user created successfully!",
             "user": new_user.to_dict()
         }), 201
     except Exception as e:
-        # If local creation fails after Supabase creation, we ideally should rollback Supabase.
-        # But this suffices for basic error handling.
-        return jsonify({"message": f"Failed to create user: {e}"}), 500
+        tb = traceback.format_exc()
+        audit_logger.error(f"[CREATE_USER] 11. Full traceback:\n{tb}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": tb
+        }), 500
 
 @auth_bp.route('/admin/users/<int:user_id>', methods=['PUT'])
 @permission_required('users')
