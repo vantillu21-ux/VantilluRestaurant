@@ -6,6 +6,7 @@ from repositories.customer_repository import CustomerRepository
 from services.auth_service import SupabaseAuthService
 from middleware.auth import admin_required, permission_required
 from schemas.auth import validate_login_payload, validate_staff_payload
+from utils.exceptions import ValidationException
 from utils.logger import logger, audit_logger
 import bcrypt
 import datetime
@@ -21,13 +22,30 @@ def login():
     if request.method == 'OPTIONS':
         return '', 204
         
-    data = validate_login_payload(request.get_json())
+    try:
+        data = validate_login_payload(request.get_json())
+    except ValidationException as ve:
+        return jsonify({
+            "success": False,
+            "message": "Validation Error",
+            "details": str(ve)
+        }), 400
+        
     username = data['username'] 
     password = data['password']
     
     # We must fetch the local admin first to get their mapped email
+    audit_logger.info(f"[LOGIN] Username lookup for: {username}")
     admin = AdminRepository.get_by_username(username)
-    login_email = admin.email if admin and admin.email else username
+    if not admin:
+        return jsonify({
+            "success": False,
+            "message": "Not Found",
+            "details": "Invalid credentials"
+        }), 401
+        
+    login_email = admin.email
+    audit_logger.info(f"[LOGIN] Email found: {login_email}")
     
     try:
         supabase_client = SupabaseAuthService.get_client()
@@ -61,29 +79,53 @@ def login():
                 is_valid_fallback = True
 
         if is_valid_fallback:
-            audit_logger.info("Local authentication bypass successful.")
+            audit_logger.info("[LOGIN] Local authentication bypass successful.")
             return jsonify({
-                'token': 'vantillu-master-session-token',
-                'username': username,
-                'role': admin.role,
-                'permissions': admin.permissions,
-                'message': 'Login successful'
+                "success": True,
+                "message": "Login successful",
+                "data": {
+                    'token': 'vantillu-master-session-token',
+                    'username': username,
+                    'role': admin.role,
+                    'permissions': admin.permissions
+                }
             }), 200
             
-        return jsonify({"message": f"Login failed: Invalid credentials"}), 401
+        return jsonify({
+            "success": False,
+            "message": "Unauthorized",
+            "details": "Invalid credentials"
+        }), 401
 
-    admin = AdminRepository.get_by_username(username)
-    if not admin:
-        audit_logger.warning(f"Unauthorized login attempt: {username} authenticated via Supabase but has no local Admin record.")
-        return jsonify({"message": "Access denied: You are not registered as an administrator."}), 403
-
-    audit_logger.info(f"Admin login successful: {username} ({admin.role})")
+    audit_logger.info(f"[LOGIN] Supabase login success. JWT issued.")
     return jsonify({
-        'token': access_token,
-        'username': username,
-        'role': admin.role,
-        'permissions': admin.permissions,
-        'message': 'Login successful'
+        "success": True,
+        "message": "Login successful",
+        "data": {
+            'token': access_token,
+            'username': username,
+            'role': admin.role,
+            'permissions': admin.permissions
+        }
+    }), 200
+
+@auth_bp.route('/admin/verify', methods=['GET', 'OPTIONS'])
+@admin_required
+def verify_token():
+    """Verifies that the current JWT is valid and the user is an active admin."""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    admin = request.current_user
+    return jsonify({
+        "success": True,
+        "message": "Token is valid",
+        "data": {
+            'username': admin.username,
+            'email': admin.email,
+            'role': admin.role,
+            'permissions': admin.permissions
+        }
     }), 200
 
 @auth_bp.route('/admin/users', methods=['GET'])
@@ -107,15 +149,6 @@ def create_user():
         raw_json = request.get_json()
         audit_logger.info(f"[CREATE_USER] 1. Raw request JSON: {raw_json}")
         
-        # Pre-process raw_json to generate email if missing
-        raw_json = raw_json or {}
-        username_raw = raw_json.get('username', '')
-        email_raw = raw_json.get('email', '')
-        
-        if username_raw and not email_raw:
-            raw_json['email'] = f"{username_raw}@vantillu.restaurant"
-            audit_logger.info(f"[CREATE_USER] Generated email: {raw_json['email']}")
-            
         # Validation Phase
         from schemas.auth import validate_staff_payload
         from utils.exceptions import ValidationException
@@ -139,13 +172,15 @@ def create_user():
         role = data.get('role', 'Admin')
         permissions = data.get('permissions', 'all')
         
-        existing = AdminRepository.get_by_username(username)
-        if existing:
-            audit_logger.warning(f"[CREATE_USER] Duplicate username/email: {username}")
+        existing_username = AdminRepository.get_by_username(username)
+        existing_email = AdminRepository.get_by_email(email) if hasattr(AdminRepository, 'get_by_email') else Admin.query.filter_by(email=email).first()
+        
+        if existing_username or existing_email:
+            audit_logger.warning(f"[CREATE_USER] Duplicate username/email: {username} / {email}")
             return jsonify({
                 "success": False,
                 "message": "Duplicate Account",
-                "details": "Username/email already exists"
+                "details": "Username or email already exists"
             }), 409
             
         audit_logger.info("[CREATE_USER] 2. Supabase client initialization starting")
@@ -202,13 +237,21 @@ def create_user():
             db.session.rollback()
             audit_logger.error("[CREATE_USER] 10. Rollback triggered due to DB error")
             audit_logger.error(f"[CREATE_USER] SQLAlchemy exception: {str(db_err)}")
+            # Rollback Supabase user creation if DB fails
+            try:
+                if supabase_user_id:
+                    supabase_admin.auth.admin.delete_user(supabase_user_id)
+                    audit_logger.info("[CREATE_USER] Rolled back Supabase user creation due to DB failure.")
+            except Exception as sb_rollback_err:
+                audit_logger.error(f"[CREATE_USER] Failed to rollback Supabase user: {str(sb_rollback_err)}")
+                
             raise db_err
             
-        audit_logger.info(f"Staff user created by {request.current_user.username}: {username} ({role})")
+        audit_logger.info(f"Staff user created by {request.current_user.username if hasattr(request, 'current_user') else 'system'}: {username} ({role})")
         return jsonify({
             "success": True,
             "message": "Staff user created successfully!",
-            "user": new_user.to_dict()
+            "data": {"user": new_user.to_dict()}
         }), 201
         
     except Exception as e:
@@ -231,24 +274,85 @@ def update_user(user_id):
     """Updates roles and privileges of an existing staff member."""
     user = AdminRepository.get_by_id(user_id)
     if not user:
-        return jsonify({"message": "Staff user not found"}), 404
-        
-    data = request.get_json()
-    updates = {}
-    if 'role' in data:
-        updates['role'] = data['role']
-    if 'permissions' in data:
-        updates['permissions'] = data['permissions']
+        return jsonify({
+            "success": False,
+            "message": "Not Found",
+            "details": "Staff user not found"
+        }), 404
         
     try:
+        raw_json = request.get_json()
+        from schemas.auth import validate_staff_payload
+        from utils.exceptions import ValidationException
+        
+        try:
+            data = validate_staff_payload(raw_json, is_update=True)
+        except ValidationException as ve:
+            return jsonify({
+                "success": False,
+                "message": "Validation Error",
+                "details": str(ve)
+            }), 400
+            
+        username = data['username']
+        email = data['email']
+        role = data['role']
+        permissions = data['permissions']
+        
+        # Check duplicates if username or email is changed
+        if username != user.username:
+            if AdminRepository.get_by_username(username):
+                return jsonify({
+                    "success": False,
+                    "message": "Duplicate Account",
+                    "details": "Username already exists"
+                }), 409
+                
+        if email != user.email:
+            existing_email = AdminRepository.get_by_email(email) if hasattr(AdminRepository, 'get_by_email') else Admin.query.filter_by(email=email).first()
+            if existing_email:
+                return jsonify({
+                    "success": False,
+                    "message": "Duplicate Account",
+                    "details": "Email already exists"
+                }), 409
+                
+        updates = {
+            'username': username,
+            'email': email,
+            'role': role,
+            'permissions': permissions
+        }
+        
+        # If email changed, we MUST update Supabase Auth first
+        if email != user.email and user.supabase_user_id:
+            try:
+                supabase_admin = SupabaseAuthService.get_admin_client()
+                supabase_admin.auth.admin.update_user_by_id(user.supabase_user_id, {"email": email})
+            except Exception as sb_err:
+                audit_logger.error(f"Failed to update email in Supabase for user {user_id}: {str(sb_err)}")
+                return jsonify({
+                    "success": False,
+                    "message": "Supabase API Error",
+                    "details": str(sb_err)
+                }), 500
+                
         updated_user = AdminRepository.update(user_id, **updates)
-        audit_logger.info(f"Staff user ID {user_id} updated by {request.current_user.username}: {updates}")
+        audit_logger.info(f"Staff user ID {user_id} updated by {request.current_user.username if hasattr(request, 'current_user') else 'system'}: {updates}")
         return jsonify({
+            "success": True,
             "message": "Staff user updated successfully!",
-            "user": updated_user.to_dict()
+            "data": {"user": updated_user.to_dict()}
         }), 200
     except Exception as e:
-        return jsonify({"message": f"Failed to update user: {e}"}), 500
+        tb = traceback.format_exc()
+        audit_logger.error(f"[UPDATE_USER] Exception: {str(e)}\n{tb}")
+        return jsonify({
+            "success": False,
+            "exception": type(e).__name__,
+            "message": str(e),
+            "traceback": tb
+        }), 500
 
 @auth_bp.route('/admin/users/<int:user_id>', methods=['DELETE'])
 @permission_required('users')
@@ -256,10 +360,18 @@ def delete_user(user_id):
     """Removes a staff profile from the system."""
     user = AdminRepository.get_by_id(user_id)
     if not user:
-        return jsonify({"message": "Staff user not found"}), 404
+        return jsonify({
+            "success": False,
+            "message": "Not Found",
+            "details": "Staff user not found"
+        }), 404
         
     if user.username == 'admin':
-        return jsonify({"message": "Cannot delete the root admin account"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Forbidden",
+            "details": "Cannot delete the root admin account"
+        }), 403
         
     try:
         if user.supabase_user_id:
@@ -267,10 +379,21 @@ def delete_user(user_id):
             supabase_admin.auth.admin.delete_user(user.supabase_user_id)
             
         AdminRepository.delete(user_id)
-        audit_logger.info(f"Staff user ID {user_id} ({user.username}) deleted by {request.current_user.username}")
-        return jsonify({"message": "Staff user deleted successfully!"}), 200
+        audit_logger.info(f"[DELETE_USER] Staff user ID {user_id} ({user.username}) deleted by {request.current_user.username if hasattr(request, 'current_user') else 'system'}")
+        return jsonify({
+            "success": True,
+            "message": "Staff user deleted successfully!",
+            "data": {}
+        }), 200
     except Exception as e:
-        return jsonify({"message": f"Failed to delete user: {e}"}), 500
+        tb = traceback.format_exc()
+        audit_logger.error(f"[DELETE_USER] Exception: {str(e)}\n{tb}")
+        return jsonify({
+            "success": False,
+            "exception": type(e).__name__,
+            "message": str(e),
+            "traceback": tb
+        }), 500
 
 @auth_bp.route('/test', methods=['GET'])
 def test_connection():
@@ -284,41 +407,63 @@ def test_connection():
 @limiter.limit("20/minute")
 def forgot_password():
     """Initiates password reset by sending an OTP."""
-    if request.method == 'OPTIONS':
-        return '', 204
+    try:
+        if request.method == 'OPTIONS':
+            return '', 204
+            
+        data = request.get_json()
+        username = data.get('username')
         
-    data = request.get_json()
-    username = data.get('username')
-    
-    if not username:
-        return jsonify({"message": "Username is required"}), 400
+        if not username:
+            return jsonify({"message": "Username is required"}), 400
+            
+        audit_logger.info(f"[RESET_PASSWORD] Username found: {username}")
+        admin = AdminRepository.get_by_username(username)
+        if not admin:
+            # Return success to prevent user enumeration
+            return jsonify({
+                "success": True,
+                "message": "If the user exists, an OTP has been sent.",
+                "data": {}
+            }), 200
+            
+        audit_logger.info(f"[RESET_PASSWORD] Email found: {admin.email}")
+            
+        otp = str(random.randint(100000, 999999))
+        otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
         
-    admin = AdminRepository.get_by_username(username)
-    if not admin:
-        # Return success to prevent user enumeration
-        return jsonify({"message": "If the user exists, an OTP has been sent."}), 200
+        token = PasswordResetToken(
+            admin_id=admin.id,
+            otp_hash=otp_hash,
+            expires_at=expires_at
+        )
+        db.session.add(token)
+        db.session.commit()
         
-    otp = str(random.randint(100000, 999999))
-    otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
-    
-    token = PasswordResetToken(
-        admin_id=admin.id,
-        otp_hash=otp_hash,
-        expires_at=expires_at
-    )
-    db.session.add(token)
-    db.session.commit()
-    
-    # Send email
-    recipient = admin.email if admin.email else 'vantillu21@gmail.com'
-    if admin.username == 'admin':
-        recipient = 'vantillu21@gmail.com'
+        # Send email
+        recipient = admin.email if admin.email else 'vantillu21@gmail.com'
+        if admin.username == 'admin':
+            recipient = 'vantillu21@gmail.com'
 
-    EmailService.send_otp_email(recipient, otp)
-    
-    audit_logger.info(f"Password reset OTP generated for: {username}")
-    return jsonify({"message": "If the user exists, an OTP has been sent."}), 200
+        EmailService.send_otp_email(recipient, otp)
+        
+        audit_logger.info(f"[RESET_PASSWORD] OTP sent to stored email: {recipient}")
+        return jsonify({
+            "success": True,
+            "message": "If the user exists, an OTP has been sent.",
+            "data": {}
+        }), 200
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        audit_logger.error(f"[RESET_PASSWORD] Exception: {str(e)}\n{tb}")
+        return jsonify({
+            "success": False,
+            "exception": type(e).__name__,
+            "message": str(e),
+            "traceback": tb
+        }), 500
 
 @auth_bp.route('/admin/verify-otp', methods=['POST', 'OPTIONS'])
 @limiter.limit("10/minute")
@@ -332,26 +477,51 @@ def verify_otp():
     otp = data.get('otp')
     
     if not username or not otp:
-        return jsonify({"message": "Username and OTP are required"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Bad Request",
+            "details": "Username and OTP are required"
+        }), 400
         
     admin = AdminRepository.get_by_username(username)
     if not admin:
-        return jsonify({"message": "Invalid OTP"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Not Found",
+            "details": "Invalid OTP"
+        }), 400
         
     token = PasswordResetToken.query.filter_by(admin_id=admin.id, used=False).order_by(PasswordResetToken.created_at.desc()).first()
     
     if not token or token.attempts >= 5:
-        return jsonify({"message": "Invalid or expired OTP"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Bad Request",
+            "details": "Invalid or expired OTP"
+        }), 400
         
     if token.expires_at < datetime.datetime.utcnow():
-        return jsonify({"message": "OTP expired"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Bad Request",
+            "details": "OTP expired"
+        }), 400
         
     if bcrypt.checkpw(otp.encode('utf-8'), token.otp_hash.encode('utf-8')):
-        return jsonify({"message": "OTP verified successfully"}), 200
+        audit_logger.info(f"[RESET_PASSWORD] OTP verified for user: {username}")
+        return jsonify({
+            "success": True,
+            "message": "OTP verified successfully",
+            "data": {}
+        }), 200
     else:
         token.attempts += 1
         db.session.commit()
-        return jsonify({"message": "Invalid OTP"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Bad Request",
+            "details": "Invalid OTP"
+        }), 400
 
 @auth_bp.route('/admin/reset-password', methods=['POST', 'OPTIONS'])
 @limiter.limit("20/minute")
@@ -366,42 +536,67 @@ def reset_password():
     new_password = data.get('newPassword')
     
     if not username or not otp or not new_password:
-        return jsonify({"message": "Username, OTP, and newPassword are required"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Bad Request",
+            "details": "Username, OTP, and newPassword are required"
+        }), 400
         
     admin = AdminRepository.get_by_username(username)
     if not admin:
-        return jsonify({"message": "User not found"}), 404
+        return jsonify({
+            "success": False,
+            "message": "Not Found",
+            "details": "User not found"
+        }), 404
         
     token = PasswordResetToken.query.filter_by(admin_id=admin.id, used=False).order_by(PasswordResetToken.created_at.desc()).first()
     
     if not token or token.attempts >= 5 or token.expires_at < datetime.datetime.utcnow():
-        return jsonify({"message": "Invalid or expired OTP"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Bad Request",
+            "details": "Invalid or expired OTP"
+        }), 400
         
     if not bcrypt.checkpw(otp.encode('utf-8'), token.otp_hash.encode('utf-8')):
         token.attempts += 1
         db.session.commit()
-        return jsonify({"message": "Invalid OTP"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Bad Request",
+            "details": "Invalid OTP"
+        }), 400
         
     try:
         if admin.supabase_user_id:
             supabase_admin = SupabaseAuthService.get_admin_client()
-            supabase_admin.auth.admin.update_user_by_id(
-                admin.supabase_user_id, 
-                {"password": new_password}
-            )
-        else:
-            # Fallback for legacy users without a supabase_user_id
-            password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            AdminRepository.update(admin.id, password_hash=password_hash)
+            supabase_admin.auth.admin.update_user_by_id(admin.supabase_user_id, {
+                "password": new_password
+            })
+            audit_logger.info(f"[RESET_PASSWORD] Password updated in Supabase Auth")
             
-        # Update updated_at explicitly (if not using onupdate reliably)
-        admin.updated_at = datetime.datetime.utcnow()
+        # Update local password hash to keep it in sync for offline/local bypass checks
+        new_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        AdminRepository.update(admin.id, password_hash=new_hash)
+        audit_logger.info(f"[RESET_PASSWORD] Hash updated in PostgreSQL")
         
+        # Mark token as used to prevent reuse
         token.used = True
         db.session.commit()
         
-        audit_logger.info(f"Password reset successful for user: {username}")
-        return jsonify({"message": "Password updated successfully."}), 200
+        return jsonify({
+            "success": True,
+            "message": "Password reset successfully!",
+            "data": {}
+        }), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({"message": f"Failed to reset password: {str(e)}"}), 500
+        tb = traceback.format_exc()
+        audit_logger.error(f"[RESET_PASSWORD] Exception: {str(e)}\n{tb}")
+        return jsonify({
+            "success": False,
+            "exception": type(e).__name__,
+            "message": str(e),
+            "traceback": tb
+        }), 500

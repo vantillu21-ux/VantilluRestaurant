@@ -390,7 +390,7 @@ export default function Home() {
                       </div>
                       <div>
                         <p className="text-brand-gold text-xs uppercase tracking-widest font-bold mb-1">Reservations & Orders</p>
-                        <a href="tel:+918008508234" className="text-white hover:text-brand-gold transition-colors font-semibold text-sm">+91 80085 08234</a>
+                        <a href="tel:+919440828238" className="text-white hover:text-brand-gold transition-colors font-semibold text-sm">+91 9440828238</a>
                       </div>
                     </div>
 

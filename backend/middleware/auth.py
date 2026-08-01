@@ -23,9 +23,13 @@ def admin_required(f):
             
         # Match email from Supabase Auth token payload with local database record
         email = user_data.get('email')
-        admin = AdminRepository.get_by_username(email)
+        admin = AdminRepository.get_by_email(email)
         if not admin:
-            return jsonify({'message': f'Access denied: {email} is not registered as an administrator'}), 403
+            return jsonify({
+                'success': False,
+                'message': 'Forbidden',
+                'details': f'Access denied: {email} is not registered as an administrator'
+            }), 403
             
         # Set the logged in admin user object in the request context for endpoint access
         request.current_user = admin
@@ -52,9 +56,13 @@ def permission_required(permission_name):
                 return jsonify({'message': 'Token is invalid or expired'}), 401
                 
             email = user_data.get('email')
-            admin = AdminRepository.get_by_username(email)
+            admin = AdminRepository.get_by_email(email)
             if not admin:
-                return jsonify({'message': f'Access denied: {email} is not registered as an administrator'}), 403
+                return jsonify({
+                    'success': False,
+                    'message': 'Forbidden',
+                    'details': f'Access denied: {email} is not registered as an administrator'
+                }), 403
                 
             # Check permissions
             if admin.permissions != 'all':

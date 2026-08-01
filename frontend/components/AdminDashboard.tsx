@@ -74,12 +74,14 @@ export const AdminDashboard: React.FC = () => {
   // Staff User Management States
   const [usersList, setUsersList] = useState<any[]>([]);
   const [newStaffUsername, setNewStaffUsername] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('Manager');
   const [newStaffPerms, setNewStaffPerms] = useState<string[]>(['orders', 'reservations', 'parties']);
   
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [editingUsername, setEditingUsername] = useState('');
+  const [editingEmail, setEditingEmail] = useState('');
   const [editingPassword, setEditingPassword] = useState('');
   const [editingRole, setEditingRole] = useState('');
   const [editingPerms, setEditingPerms] = useState<string[]>([]);
@@ -97,6 +99,21 @@ export const AdminDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleLogout = () => {
+    localStorage.removeItem('vantillu_admin_token');
+    localStorage.removeItem('vantillu_admin_role');
+    localStorage.removeItem('vantillu_admin_permissions');
+    sessionStorage.clear();
+    setToken('');
+    setUserRole('Admin');
+    setUserPermissions('all');
+    setIsLoggedIn(false);
+    
+    // Attempt to call a backend logout if it exists, though JWTs are stateless
+    // We mainly rely on local storage clearing.
+    window.location.replace('/admin'); // Force reload to clear any memory state and history
+  };
+
   // Authenticate Admin
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,13 +125,14 @@ export const AdminDashboard: React.FC = () => {
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setToken(data.token);
-        localStorage.setItem('vantillu_admin_token', data.token);
-        localStorage.setItem('vantillu_admin_role', data.role || 'Admin');
-        localStorage.setItem('vantillu_admin_permissions', data.permissions || 'all');
-        setUserRole(data.role || 'Admin');
-        setUserPermissions(data.permissions || 'all');
+      if (res.ok && data.success) {
+        const authData = data.data;
+        setToken(authData.token);
+        localStorage.setItem('vantillu_admin_token', authData.token);
+        localStorage.setItem('vantillu_admin_role', authData.role || 'Admin');
+        localStorage.setItem('vantillu_admin_permissions', authData.permissions || 'all');
+        setUserRole(authData.role || 'Admin');
+        setUserPermissions(authData.permissions || 'all');
         setIsLoggedIn(true);
       } else {
         setErrorMsg(data.message || 'Authentication failed');
@@ -137,13 +155,6 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    setToken('');
-    localStorage.removeItem('vantillu_admin_token');
-    localStorage.removeItem('vantillu_admin_role');
-    localStorage.removeItem('vantillu_admin_permissions');
-    setIsLoggedIn(false);
-  };
 
   const handleInitReset = async () => {
     setIsResetMode(true);
@@ -237,8 +248,16 @@ export const AdminDashboard: React.FC = () => {
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStaffUsername || !newStaffPassword) {
-      alert('Username and password are required.');
+    if (!newStaffUsername || !newStaffEmail || !newStaffPassword) {
+      alert('Username, email, and password are required.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newStaffEmail)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+    if (newStaffPassword.length < 8) {
+      alert('Password must be at least 8 characters long.');
       return;
     }
     try {
@@ -250,6 +269,7 @@ export const AdminDashboard: React.FC = () => {
         },
         body: JSON.stringify({
           username: newStaffUsername,
+          email: newStaffEmail,
           password: newStaffPassword,
           role: newStaffRole,
           permissions: newStaffPerms.join(',')
@@ -259,6 +279,7 @@ export const AdminDashboard: React.FC = () => {
       if (res.ok) {
         alert('Staff user created successfully!');
         setNewStaffUsername('');
+        setNewStaffEmail('');
         setNewStaffPassword('');
         setNewStaffRole('Manager');
         setNewStaffPerms(['orders', 'reservations', 'parties']);
@@ -275,9 +296,14 @@ export const AdminDashboard: React.FC = () => {
   const handleUpdateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUserId) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editingEmail)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
     try {
       const payload: any = {
         username: editingUsername,
+        email: editingEmail,
         role: editingRole,
         permissions: editingPerms.join(',')
       };
@@ -359,15 +385,16 @@ export const AdminDashboard: React.FC = () => {
         },
         body: JSON.stringify(webSettings)
       });
-      if (res.ok) {
+      const resData = await res.json();
+      if (res.ok && resData.success) {
         alert('Website settings updated successfully!');
-        fetchDashboardData();
+        setWebSettings(resData.data);
       } else {
-        alert('Failed to save settings.');
+        alert(`Failed to save settings: ${resData.message}`);
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving settings.');
+      alert('Network error while saving settings.');
     }
   };
 
@@ -389,7 +416,7 @@ export const AdminDashboard: React.FC = () => {
     };
     
     try {
-      const url = selectedMenuItem ? `/api/admin/menu/${selectedMenuItem.id}` : '/api/admin/menu';
+      const url = selectedMenuItem ? `${API_URL}/api/admin/menu/${selectedMenuItem.id}` : `${API_URL}/api/admin/menu`;
       const method = selectedMenuItem ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -400,17 +427,24 @@ export const AdminDashboard: React.FC = () => {
         body: JSON.stringify(payload)
       });
       
-      if (res.ok) {
+      const resData = await res.json();
+      if (res.ok && resData.success) {
         alert(selectedMenuItem ? 'Menu item updated successfully!' : 'Menu item added successfully!');
         resetMenuForm();
-        fetchDashboardData();
+        
+        // Update local state surgically
+        if (selectedMenuItem) {
+          setMenuItems(prev => prev.map(m => m.id === resData.data.id ? resData.data : m));
+        } else {
+          setMenuItems(prev => [...prev, resData.data]);
+        }
       } else {
-        const d = await res.json();
-        alert(d.message || 'Failed to save menu item.');
+        alert(resData.message || 'Failed to save menu item.');
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving menu item.');
+      alert('Network error saving menu item.');
+      return false;
     }
   };
 
@@ -423,11 +457,11 @@ export const AdminDashboard: React.FC = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-      if (res.ok) {
-        alert('Menu item deleted successfully!');
-        fetchDashboardData();
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setMenuItems(prev => prev.filter(m => m.id !== id));
       } else {
-        alert('Failed to delete menu item.');
+        alert(`Failed to delete menu item: ${resData.message}`);
       }
     } catch (err) {
       console.error(err);
@@ -501,7 +535,7 @@ export const AdminDashboard: React.FC = () => {
         const usersRes = await fetch(`${API_URL}/api/admin/users`, { headers });
         if (usersRes.ok) {
           const uData = await usersRes.json();
-          setUsersList(uData);
+          setUsersList(uData.data || uData); // Handle both standardized and legacy
         }
       }
     } catch (err) {
@@ -521,18 +555,66 @@ export const AdminDashboard: React.FC = () => {
     }
   }, [isLoggedIn, token, userPermissions]);
 
-  // Load token from cache on mount
+  // Load token from cache on mount and verify it securely
   useEffect(() => {
+    const verifyToken = async (cachedToken: string) => {
+      try {
+        const res = await fetch(`${API_URL}/api/admin/verify`, {
+          headers: { 'Authorization': `Bearer ${cachedToken}` }
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          setToken(cachedToken);
+          setUserRole(data.data?.role || localStorage.getItem('vantillu_admin_role') || 'Admin');
+          setUserPermissions(data.data?.permissions || localStorage.getItem('vantillu_admin_permissions') || 'all');
+          setIsLoggedIn(true);
+        } else {
+          // Token is invalid or expired
+          handleLogout();
+        }
+      } catch (err) {
+        console.error('Failed to verify token', err);
+        // If network is completely down we might want to allow cached login, 
+        // but for strict security we should require a valid check. 
+        // For production, we force logout on verification failure.
+        handleLogout();
+      }
+    };
+
     const cachedToken = localStorage.getItem('vantillu_admin_token');
-    const cachedRole = localStorage.getItem('vantillu_admin_role');
-    const cachedPerms = localStorage.getItem('vantillu_admin_permissions');
     if (cachedToken) {
-      setToken(cachedToken);
-      setUserRole(cachedRole || 'Admin');
-      setUserPermissions(cachedPerms || 'all');
-      setIsLoggedIn(true);
+      verifyToken(cachedToken);
+    } else {
+      setIsLoggedIn(false);
     }
   }, []);
+
+  // 30 Minute Inactivity Timeout
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      // 30 minutes = 30 * 60 * 1000 = 1800000 ms
+      timeoutId = setTimeout(() => {
+        alert('Session expired due to inactivity.');
+        handleLogout();
+      }, 1800000);
+    };
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => document.addEventListener(event, resetTimer));
+    
+    resetTimer(); // Start the timer initially
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => document.removeEventListener(event, resetTimer));
+    };
+  }, [isLoggedIn]);
 
   // Update order status route trigger
   const handleUpdateOrderStatus = async (orderId: number, nextStatus: string) => {
@@ -545,14 +627,14 @@ export const AdminDashboard: React.FC = () => {
         },
         body: JSON.stringify({ status: nextStatus })
       });
-      if (res.ok) {
-        fetchDashboardData();
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setOrders(prev => prev.map(o => o.id === orderId ? resData.data : o));
       } else {
-        alert('Failed to update status');
+        alert(`Failed to update status: ${resData.message || 'Unknown error'}`);
       }
     } catch (err) {
-      // Offline fallback simulation
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
+      alert('Network error while updating status');
     }
   };
 
@@ -567,11 +649,14 @@ export const AdminDashboard: React.FC = () => {
         },
         body: JSON.stringify({ status: nextStatus })
       });
-      if (res.ok) {
-        fetchDashboardData();
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setReservations(prev => prev.map(r => r.id === resId ? resData.data : r));
+      } else {
+        alert(`Failed to update reservation: ${resData.message || 'Unknown error'}`);
       }
     } catch (err) {
-      setReservations(prev => prev.map(r => r.id === resId ? { ...r, status: nextStatus } : r));
+      alert('Network error while updating reservation status');
     }
   };
 
@@ -1304,6 +1389,7 @@ export const AdminDashboard: React.FC = () => {
                                   onClick={() => {
                                     setEditingUserId(u.id);
                                     setEditingUsername(u.username);
+                                    setEditingEmail(u.email || '');
                                     setEditingRole(u.role || 'Staff');
                                     setEditingPerms(u.permissions === 'all' ? ['orders', 'kitchen', 'reservations', 'parties', 'users'] : u.permissions.split(','));
                                     setEditingPassword('');
@@ -1358,6 +1444,17 @@ export const AdminDashboard: React.FC = () => {
                         required
                         value={editingUsername}
                         onChange={(e) => setEditingUsername(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-white/50 uppercase">Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={editingEmail}
+                        onChange={(e) => setEditingEmail(e.target.value)}
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
                     </div>
@@ -1441,6 +1538,18 @@ export const AdminDashboard: React.FC = () => {
                         value={newStaffUsername}
                         onChange={(e) => setNewStaffUsername(e.target.value)}
                         placeholder="e.g. chef_ravi"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-white/50 uppercase">Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={newStaffEmail}
+                        onChange={(e) => setNewStaffEmail(e.target.value)}
+                        placeholder="e.g. chef.ravi@gmail.com"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
                     </div>
@@ -1717,6 +1826,7 @@ export const AdminDashboard: React.FC = () => {
                                     >
                                       <Edit2 size={13} />
                                     </button>
+
                                     <button
                                       onClick={() => handleDeleteMenuItem(item.id)}
                                       className="p-1.5 rounded hover:bg-red-500/10 text-red-400 transition-colors cursor-pointer"

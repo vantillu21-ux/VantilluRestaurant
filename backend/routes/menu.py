@@ -76,9 +76,13 @@ def add_menu_item():
     menu.append(new_item)
     if save_menu(menu):
         audit_logger.info(f"Menu item '{new_item['name']}' (ID: {new_id}) created by {request.current_user.username}.")
-        return jsonify({"message": "Menu item created successfully!", "item": new_item}), 201
+        return jsonify({
+            "success": True,
+            "message": "Menu item created successfully!", 
+            "data": new_item
+        }), 201
     else:
-        return jsonify({"message": "Failed to save menu item changes."}), 500
+        return jsonify({"success": False, "message": "Failed to save menu item changes."}), 500
 
 @menu_bp.route('/admin/menu/<int:item_id>', methods=['PUT'])
 @admin_required
@@ -112,10 +116,15 @@ def edit_menu_item(item_id):
                 
     menu[item_index] = target_item
     if save_menu(menu):
-        audit_logger.info(f"Menu item ID {item_id} updated by {request.current_user.username}.")
-        return jsonify({"message": "Menu item updated successfully!", "item": target_item}), 200
+        audit_logger.info(f"[UPDATE] Endpoint: /api/admin/menu/{item_id}, Record ID: {item_id}, DB commit success: True")
+        return jsonify({
+            "success": True,
+            "message": "Menu item updated successfully!", 
+            "data": target_item
+        }), 200
     else:
-        return jsonify({"message": "Failed to save menu item updates."}), 500
+        audit_logger.error(f"[UPDATE] Endpoint: /api/admin/menu/{item_id}, Record ID: {item_id}, DB commit success: False")
+        return jsonify({"success": False, "message": "Failed to save menu item updates."}), 500
 
 @menu_bp.route('/admin/menu/<int:item_id>', methods=['DELETE'])
 @admin_required
@@ -137,6 +146,9 @@ def delete_menu_item(item_id):
     
     if save_menu(menu):
         audit_logger.info(f"Menu item '{item_name}' (ID: {item_id}) deleted by {request.current_user.username}.")
-        return jsonify({"message": f"Menu item '{item_name}' deleted successfully!"}), 200
+        return jsonify({
+            "success": True,
+            "message": f"Menu item '{item_name}' deleted successfully!"
+        }), 200
     else:
-        return jsonify({"message": "Failed to save delete changes."}), 500
+        return jsonify({"success": False, "message": "Failed to save delete changes."}), 500

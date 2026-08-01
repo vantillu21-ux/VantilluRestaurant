@@ -54,6 +54,10 @@ def update_settings():
             
     if save_settings(settings):
         audit_logger.info(f"Website settings updated by {request.current_user.username}.")
-        return jsonify({"message": "Website settings updated successfully!", "settings": settings}), 200
+        return jsonify({
+            "success": True,
+            "message": "Website settings updated successfully!", 
+            "data": settings
+        }), 200
     else:
-        return jsonify({"message": "Failed to save settings updates."}), 500
+        return jsonify({"success": False, "message": "Failed to save settings updates."}), 500

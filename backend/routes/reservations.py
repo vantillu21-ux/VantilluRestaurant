@@ -55,14 +55,16 @@ def update_reservation_status(res_id):
         
     res = ReservationRepository.get_by_id(res_id)
     if not res:
-        return jsonify({"message": "Reservation not found"}), 404
+        return jsonify({"success": False, "message": "Reservation not found"}), 404
         
     try:
         updated = ReservationRepository.update(res_id, status=new_status)
-        audit_logger.info(f"Reservation {res_id} status updated to '{new_status}' by {request.current_user.username}.")
+        audit_logger.info(f"[UPDATE] Endpoint: /api/reservations/{res_id}/status, Record ID: {res_id}, Old Status: {res.status}, New Status: {new_status}, DB commit success: True")
         return jsonify({
+            'success': True,
             'message': f'Reservation status updated to {new_status}!',
-            'reservation': updated.to_dict()
+            'data': updated.to_dict()
         }), 200
     except Exception as e:
-        return jsonify({"message": f"Failed to update reservation status: {e}"}), 500
+        audit_logger.error(f"[UPDATE] Endpoint: /api/reservations/{res_id}/status, Record ID: {res_id}, DB commit success: False")
+        return jsonify({"success": False, "message": f"Failed to update reservation status: {e}"}), 500

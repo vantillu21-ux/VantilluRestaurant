@@ -109,14 +109,16 @@ def update_order_status(order_id):
         
     order = OrderRepository.get_by_id(order_id)
     if not order:
-        return jsonify({"message": "Order not found"}), 404
+        return jsonify({"success": False, "message": "Order not found"}), 404
         
     try:
         updated = OrderRepository.update(order_id, status=new_status)
-        audit_logger.info(f"Order {order_id} status updated to '{new_status}' by {request.current_user.username}.")
+        audit_logger.info(f"[UPDATE] Endpoint: /api/orders/{order_id}/status, Record ID: {order_id}, Old Status: {order.status}, New Status: {new_status}, DB commit success: True")
         return jsonify({
+            "success": True,
             "message": f"Order status updated to {new_status} successfully!",
-            "order": updated.to_dict()
+            "data": updated.to_dict()
         }), 200
     except Exception as e:
-        return jsonify({"message": f"Failed to update order status: {e}"}), 500
+        audit_logger.error(f"[UPDATE] Endpoint: /api/orders/{order_id}/status, Record ID: {order_id}, DB commit success: False")
+        return jsonify({"success": False, "message": f"Failed to update order status: {e}"}), 500

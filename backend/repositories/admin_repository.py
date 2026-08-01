@@ -15,3 +15,10 @@ class AdminRepository(BaseRepository):
             prefix = username.split('@')[0]
             admin = cls.model.query.filter_by(username=prefix).first()
         return admin
+
+    @classmethod
+    def get_by_email(cls, email):
+        """Retrieves an admin staff member by their exact email."""
+        if not email:
+            return None
+        return cls.model.query.filter_by(email=email).first()

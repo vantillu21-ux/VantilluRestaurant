@@ -55,14 +55,16 @@ def update_party_status(party_id):
         
     party = PartyOrderRepository.get_by_id(party_id)
     if not party:
-        return jsonify({"message": "Party inquiry not found"}), 404
+        return jsonify({"success": False, "message": "Party inquiry not found"}), 404
         
     try:
         updated = PartyOrderRepository.update(party_id, status=new_status)
-        audit_logger.info(f"Party inquiry {party_id} status updated to '{new_status}' by {request.current_user.username}.")
+        audit_logger.info(f"[UPDATE] Endpoint: /api/party-orders/{party_id}/status, Record ID: {party_id}, Old Status: {party.status}, New Status: {new_status}, DB commit success: True")
         return jsonify({
+            'success': True,
             'message': f'Party status updated to {new_status}!',
-            'party_order': updated.to_dict()
+            'data': updated.to_dict()
         }), 200
     except Exception as e:
-        return jsonify({"message": f"Failed to update party status: {e}"}), 500
+        audit_logger.error(f"[UPDATE] Endpoint: /api/party-orders/{party_id}/status, Record ID: {party_id}, DB commit success: False")
+        return jsonify({"success": False, "message": f"Failed to update party status: {e}"}), 500
