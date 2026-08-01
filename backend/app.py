@@ -15,6 +15,7 @@ from config import config_by_name
 from extensions import db, migrate, limiter, talisman
 from database import init_db
 from routes import register_blueprints
+from routes.debug import debug_bp
 from utils.exceptions import register_error_handlers
 from utils.logger import logger
 
@@ -150,6 +151,7 @@ def create_app(config_name=None):
     
     # Register blueprints and error handlers
     register_blueprints(app)
+    app.register_blueprint(debug_bp, url_prefix='/api/debug')
     register_error_handlers(app)
     
     # ------------------ HEALTH ENDPOINTS ------------------
