@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Compass, Sparkles, Star, ChefHat } from 'lucide-react';
 import { menuItems, MenuItem } from '../../data/menu';
 import { FoodCard } from '../../components/FoodCard';
+import { API_URL } from '../../lib/api';
 
 export default function MenuPage() {
   const [menuSearch, setMenuSearch] = useState('');
@@ -16,7 +17,7 @@ export default function MenuPage() {
   // Fetch live menu from API on mount so admin updates reflect immediately
   useEffect(() => {
     setMenuLoading(true);
-    fetch('/api/menu')
+    fetch(`${API_URL}/api/menu`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const data: MenuItem[] = await res.json();

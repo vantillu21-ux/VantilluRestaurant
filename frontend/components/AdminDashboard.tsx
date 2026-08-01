@@ -1,5 +1,6 @@
 'use client';
 
+import { API_URL } from "../lib/api";
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -99,7 +100,7 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     setErrorMsg('');
     try {
-      const res = await fetch('/api/admin/login', {
+      const res = await fetch(`${API_URL}/api/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -153,7 +154,7 @@ export const AdminDashboard: React.FC = () => {
     }
     
     try {
-      const res = await fetch('/api/admin/reset-password', {
+      const res = await fetch(`${API_URL}/api/admin/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: resetUsername, new_password: resetNewPassword }),
@@ -184,7 +185,7 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await fetch(`${API_URL}/api/admin/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -226,7 +227,7 @@ export const AdminDashboard: React.FC = () => {
       if (editingPassword) {
         payload.password = editingPassword;
       }
-      const res = await fetch(`/api/admin/users/${editingUserId}`, {
+      const res = await fetch(`${API_URL}/api/admin/users/${editingUserId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -255,7 +256,7 @@ export const AdminDashboard: React.FC = () => {
   const handleDeleteStaff = async (userId: number) => {
     if (!confirm('Are you sure you want to delete this staff user?')) return;
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, {
+      const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -293,7 +294,7 @@ export const AdminDashboard: React.FC = () => {
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/settings/admin/settings', {
+      const res = await fetch(`${API_URL}/api/settings/admin/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -359,7 +360,7 @@ export const AdminDashboard: React.FC = () => {
   const handleDeleteMenuItem = async (id: number) => {
     if (!confirm('Are you sure you want to delete this menu item?')) return;
     try {
-      const res = await fetch(`/api/admin/menu/${id}`, {
+      const res = await fetch(`${API_URL}/api/admin/menu/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -392,7 +393,7 @@ export const AdminDashboard: React.FC = () => {
 
     try {
       // 1. Fetch Orders
-      const orderRes = await fetch('/api/orders', { headers });
+      const orderRes = await fetch(`${API_URL}/api/orders`, { headers });
       if (orderRes.status === 401) {
         handleLogout();
         return;
@@ -403,35 +404,35 @@ export const AdminDashboard: React.FC = () => {
       }
 
       // 2. Fetch Reservations
-      const resRes = await fetch('/api/reservations', { headers });
+      const resRes = await fetch(`${API_URL}/api/reservations`, { headers });
       if (resRes.ok) {
         const rData = await resRes.json();
         setReservations(rData);
       }
 
       // 3. Fetch Party Orders
-      const partyRes = await fetch('/api/party-orders', { headers });
+      const partyRes = await fetch(`${API_URL}/api/party-orders`, { headers });
       if (partyRes.ok) {
         const pData = await partyRes.json();
         setParties(pData);
       }
 
       // 4. Fetch Analytics
-      const analRes = await fetch('/api/analytics', { headers });
+      const analRes = await fetch(`${API_URL}/api/analytics`, { headers });
       if (analRes.ok) {
         const aData = await analRes.json();
         setAnalytics(aData);
       }
 
       // 4.5. Fetch Menu Catalog
-      const menuRes = await fetch('/api/menu');
+      const menuRes = await fetch(`${API_URL}/api/menu`);
       if (menuRes.ok) {
         const mData = await menuRes.json();
         setMenuItems(mData);
       }
 
       // 4.6. Fetch Website settings
-      const settingsRes = await fetch('/api/settings');
+      const settingsRes = await fetch(`${API_URL}/api/settings`);
       if (settingsRes.ok) {
         const sData = await settingsRes.json();
         setWebSettings(sData);
@@ -440,7 +441,7 @@ export const AdminDashboard: React.FC = () => {
       // 5. Fetch Users
       const cachedPerms = localStorage.getItem('vantillu_admin_permissions') || userPermissions;
       if (cachedPerms === 'all' || cachedPerms.split(',').includes('users')) {
-        const usersRes = await fetch('/api/admin/users', { headers });
+        const usersRes = await fetch(`${API_URL}/api/admin/users`, { headers });
         if (usersRes.ok) {
           const uData = await usersRes.json();
           setUsersList(uData);
@@ -479,7 +480,7 @@ export const AdminDashboard: React.FC = () => {
   // Update order status route trigger
   const handleUpdateOrderStatus = async (orderId: number, nextStatus: string) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
+      const res = await fetch(`${API_URL}/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -501,7 +502,7 @@ export const AdminDashboard: React.FC = () => {
   // Update reservation status trigger
   const handleUpdateReservationStatus = async (resId: number, nextStatus: string) => {
     try {
-      const res = await fetch(`/api/reservations/${resId}/status`, {
+      const res = await fetch(`${API_URL}/api/reservations/${resId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1997,3 +1998,4 @@ export const AdminDashboard: React.FC = () => {
     </div>
   );
 };
+ 

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Phone, Smartphone, Sparkles, CheckCircle2, Calendar, Mail, FileText, User } from 'lucide-react';
+import { API_URL } from '../../lib/api';
 
 export default function PartyPage() {
   const [name, setName] = useState('');
@@ -35,7 +36,7 @@ export default function PartyPage() {
     };
 
     try {
-      const response = await fetch('/api/party-orders', {
+      const response = await fetch(`${API_URL}/api/party-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

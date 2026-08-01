@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Users, Phone, User, Mail, FileText, CheckCircle, Sparkles } from 'lucide-react';
+import { API_URL } from '../../lib/api';
 
 export default function ReservePage() {
   const [name, setName] = useState('');
@@ -35,7 +36,7 @@ export default function ReservePage() {
     };
 
     try {
-      const response = await fetch('/api/reservations', {
+      const response = await fetch(`${API_URL}/api/reservations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -7,6 +7,7 @@ import { Sparkles, Star, Calendar, ChefHat, ArrowRight, MapPin, Camera, ChevronL
 import { IntroCinematic } from '../components/IntroCinematic';
 import { Restaurant3D } from '../components/Restaurant3D';
 import settings from '../data/settings.json';
+import { API_URL } from '../lib/api';
 
 export default function Home() {
   const [showIntro, setShowIntro] = useState(true);
@@ -42,7 +43,7 @@ export default function Home() {
     }
 
     // Load settings from backend API
-    fetch('/api/settings')
+    fetch(`${API_URL}/api/settings`)
       .then(res => res.json())
       .then(data => {
         if (data && data.restaurantName) {
@@ -64,7 +65,7 @@ export default function Home() {
     const token = localStorage.getItem('vantillu_admin_token');
     if (!token) return;
     try {
-      await fetch('/api/settings/admin/settings', {
+      await fetch(`${API_URL}/api/settings/admin/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

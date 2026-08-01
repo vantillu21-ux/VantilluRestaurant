@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, Clock, Users, Phone, User, Mail, FileText, CheckCircle } from 'lucide-react';
+import { API_URL } from '../lib/api';
 
 interface ReservationModalProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onCl
     };
 
     try {
-      const response = await fetch('/api/reservations', {
+      const response = await fetch(`${API_URL}/api/reservations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
