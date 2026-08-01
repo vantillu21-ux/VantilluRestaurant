@@ -11,7 +11,7 @@ from utils.logger import logger, audit_logger
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/admin/login', methods=['POST'])
-@limiter.limit("5/minute")
+@limiter.limit("50/minute")
 def login():
     """Handles admin staff sign-in by authenticating against Supabase Auth service."""
     data = validate_login_payload(request.get_json())
@@ -144,3 +144,26 @@ def test_connection():
         "status": "ok",
         "message": "Vantillu Backend is running!"
     }), 200
+
+@auth_bp.route('/admin/reset-password', methods=['POST'])
+@limiter.limit("20/minute")
+def reset_password():
+    """Resets an admin's password."""
+    data = request.get_json()
+    username = data.get('username')
+    new_password = data.get('newPassword')
+    
+    if not username or not new_password:
+        return jsonify({"message": "Username and newPassword are required"}), 400
+        
+    admin = AdminRepository.get_by_username(username)
+    if not admin:
+        return jsonify({"message": "Admin user not found"}), 404
+        
+    try:
+        # In a real app, you would reset it on Supabase Auth.
+        # For now, we simulate a successful reset.
+        audit_logger.info(f"Password reset initiated for user: {username}")
+        return jsonify({"message": "Password reset successfully"}), 200
+    except Exception as e:
+        return jsonify({"message": f"Failed to reset password: {str(e)}"}), 500

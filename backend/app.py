@@ -3,7 +3,7 @@ import sys
 import time
 import socket
 from urllib.parse import quote, unquote
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -141,7 +141,7 @@ def create_app(config_name=None):
     if env_client_url and env_client_url not in allowed_origins:
         allowed_origins.append(env_client_url)
         
-    CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
+    CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": allowed_origins}})
     
     # Initialize pre-flight checks and Database
     init_db(app)
@@ -158,6 +158,19 @@ def create_app(config_name=None):
     # Register blueprints and error handlers
     register_blueprints(app)
     register_error_handlers(app)
+    
+    # ------------------ LOGGING HOOKS ------------------
+    @app.before_request
+    def log_request_info():
+        if request.path.startswith('/api/'):
+            logger.info(f"Incoming {request.method} {request.path} - Origin: {request.headers.get('Origin', 'None')}")
+
+    @app.after_request
+    def log_response_info(response):
+        if request.path.startswith('/api/'):
+            cors_headers = {k: v for k, v in response.headers.items() if k.startswith('Access-Control-')}
+            logger.info(f"Outgoing {request.method} {request.path} - Status: {response.status_code} - CORS: {cors_headers}")
+        return response
     
     # ------------------ HEALTH ENDPOINTS ------------------
     @app.route('/health', methods=['GET'])
