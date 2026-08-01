@@ -145,19 +145,22 @@ export const AdminDashboard: React.FC = () => {
     setIsLoggedIn(false);
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleInitReset = async () => {
+    setIsResetMode(true);
+    setResetUsername('admin');
     setErrorMsg('');
     setResetSuccessMsg('');
+    
+    // Automatically trigger OTP for admin
     try {
       const res = await fetch(`${API_URL}/api/admin/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: resetUsername }),
+        body: JSON.stringify({ username: 'admin' }),
       });
       const data = await res.json();
       if (res.ok) {
-        setResetSuccessMsg(data.message);
+        setResetSuccessMsg('OTP sent to vantillu21@gmail.com');
         setResetStep(2);
       } else {
         setErrorMsg(data.message || 'Failed to send OTP');
@@ -165,6 +168,11 @@ export const AdminDashboard: React.FC = () => {
     } catch (err) {
       setErrorMsg('Could not connect to server.');
     }
+  };
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await handleInitReset();
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -624,18 +632,8 @@ export const AdminDashboard: React.FC = () => {
               </p>
 
               {resetStep === 1 && (
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div>
-                    <label className="text-[10px] text-white/50 uppercase tracking-widest">Username / Email</label>
-                    <input
-                      type="text"
-                      required
-                      value={resetUsername}
-                      onChange={(e) => setResetUsername(e.target.value)}
-                      placeholder="Enter username"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
-                    />
-                  </div>
+                <div className="space-y-4 text-center pb-4">
+                  <p className="text-xs text-white/70">Initializing secure password reset for Admin...</p>
                   
                   {errorMsg && (
                     <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
@@ -643,13 +641,6 @@ export const AdminDashboard: React.FC = () => {
                   {resetSuccessMsg && (
                     <p className="text-xs text-green-400 text-center font-semibold">{resetSuccessMsg}</p>
                   )}
-
-                  <button
-                    type="submit"
-                    className="w-full bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-semibold py-3 rounded-xl cursor-pointer transition-colors shadow-lg uppercase text-xs tracking-wider"
-                  >
-                    Send OTP
-                  </button>
 
                   <div className="text-center pt-2">
                     <button
@@ -661,10 +652,10 @@ export const AdminDashboard: React.FC = () => {
                       }}
                       className="text-xs text-brand-gold/80 hover:text-brand-gold hover:underline cursor-pointer transition-colors"
                     >
-                      Back to Login
+                      Cancel & Back to Login
                     </button>
                   </div>
-                </form>
+                </div>
               )}
 
               {resetStep === 2 && (
@@ -783,10 +774,7 @@ export const AdminDashboard: React.FC = () => {
                 <div className="text-center pt-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsResetMode(true);
-                      setErrorMsg('');
-                    }}
+                    onClick={handleInitReset}
                     className="text-xs text-brand-gold/80 hover:text-brand-gold hover:underline cursor-pointer transition-colors"
                   >
                     Reset Password / Forgot?

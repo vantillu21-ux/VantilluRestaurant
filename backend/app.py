@@ -150,6 +150,13 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     limiter.init_app(app)
     
+    with app.app_context():
+        from flask_migrate import upgrade
+        try:
+            upgrade()
+        except Exception as e:
+            logger.error(f"Migration upgrade failed on startup: {e}")
+    
     # Initialize Security Headers (Flask-Talisman)
     # Set force_https=False in development to prevent local browser SSL complaints
     is_prod = config_name == 'production'
