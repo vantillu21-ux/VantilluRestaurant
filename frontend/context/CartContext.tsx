@@ -77,9 +77,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Calculate actual price based on portion choice
     let actualPrice = item.price || 0;
-    if (portion === 'Half' && item.halfPrice !== undefined) actualPrice = item.halfPrice;
+    if (portion === 'Small') {
+      if (item.singlePrice !== undefined) actualPrice = item.singlePrice;
+      else if (item.halfPrice !== undefined) actualPrice = item.halfPrice;
+    }
     else if (portion === 'Full' && item.fullPrice !== undefined) actualPrice = item.fullPrice;
-    else if (portion === 'Single' && item.singlePrice !== undefined) actualPrice = item.singlePrice;
     else if (portion === 'Family' && item.familyPrice !== undefined) actualPrice = item.familyPrice;
     else if (portion === 'Jumbo' && item.jumboPrice !== undefined) actualPrice = item.jumboPrice;
 
