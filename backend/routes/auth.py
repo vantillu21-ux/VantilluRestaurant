@@ -32,13 +32,13 @@ def login():
             "password": password
         })
         
-        if not auth_res or not auth_res.user:
-            return jsonify({"message": "Authentication failed on Supabase"}), 401
+        if auth_res and auth_res.user:
+            access_token = auth_res.session.access_token
+        else:
+            raise Exception("Supabase returned empty user")
             
-        access_token = auth_res.session.access_token
-        
     except Exception as e:
-        # Fallback master validation check for local offline tests/debugging
+        # Fallback master validation check for local offline tests/debugging/resets
         admin = AdminRepository.get_by_username(username)
         
         is_valid_fallback = False
@@ -51,8 +51,8 @@ def login():
                     else:
                         # Handle case where database has plaintext password (legacy)
                         is_valid_fallback = (password == admin.password_hash)
-                except ValueError as e:
-                    audit_logger.error(f"Bcrypt validation error for user {username}: {e}")
+                except ValueError as err:
+                    audit_logger.error(f"Bcrypt validation error for user {username}: {err}")
                     is_valid_fallback = False
             elif password == 'vantillu123' and username == 'admin':
                 is_valid_fallback = True
@@ -66,7 +66,8 @@ def login():
                 'permissions': admin.permissions,
                 'message': 'Login successful'
             }), 200
-        return jsonify({"message": f"Login failed: {e}"}), 401
+            
+        return jsonify({"message": f"Login failed: Invalid credentials"}), 401
 
     admin = AdminRepository.get_by_username(username)
     if not admin:
