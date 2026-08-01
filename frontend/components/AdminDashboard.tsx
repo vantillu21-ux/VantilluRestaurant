@@ -470,8 +470,16 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const hasPermission = (tabId: string) => {
+    const privilegedTabs = ['menu', 'settings', 'view_website'];
+    const privilegedRoles = ['Owner', 'Admin', 'Manager'];
+    
+    if (privilegedTabs.includes(tabId)) {
+      return privilegedRoles.includes(userRole);
+    }
+    
     if (userPermissions === 'all') return true;
-    if (tabId === 'view_website' || tabId === 'menu' || tabId === 'settings' || tabId === 'analytics') return true;
+    if (tabId === 'analytics') return true;
+    
     const perms = userPermissions.split(',');
     return perms.includes(tabId);
   };
