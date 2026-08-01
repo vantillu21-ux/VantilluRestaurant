@@ -41,7 +41,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onCl
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/reservations`, {
+      const response = await fetch(`${API_URL}/api/v1/reservations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

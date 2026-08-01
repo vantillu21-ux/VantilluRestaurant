@@ -10,15 +10,15 @@ from routes.customer_verification import customer_verification_bp
 
 def register_blueprints(app):
     """Registers all Blueprint packages with standard compatibility routes matching your frontend."""
-    # Mount auth blueprint (handles /api/otp/send, /api/otp/verify, /api/admin/login, /api/admin/users)
-    app.register_blueprint(auth_bp, url_prefix='/api')
+    # Mount auth blueprint
+    app.register_blueprint(auth_bp, url_prefix='/api/v1')
     
     # Mount other blueprints under their respective paths
-    app.register_blueprint(orders_bp, url_prefix='/api/orders')
-    app.register_blueprint(reservations_bp, url_prefix='/api/reservations')
-    app.register_blueprint(party_orders_bp, url_prefix='/api/party-orders')
-    app.register_blueprint(payments_bp, url_prefix='/api/payments')
-    app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
-    app.register_blueprint(menu_bp, url_prefix='/api')
-    app.register_blueprint(settings_bp, url_prefix='/api/settings')
+    app.register_blueprint(orders_bp, url_prefix='/api/v1/orders')
+    app.register_blueprint(reservations_bp, url_prefix='/api/v1/reservations')
+    app.register_blueprint(party_orders_bp, url_prefix='/api/v1/party-orders')
+    app.register_blueprint(payments_bp, url_prefix='/api/v1/payments')
+    app.register_blueprint(analytics_bp, url_prefix='/api/v1/analytics')
+    app.register_blueprint(menu_bp, url_prefix='/api/v1')
+    app.register_blueprint(settings_bp, url_prefix='/api/v1/settings')
     app.register_blueprint(customer_verification_bp)

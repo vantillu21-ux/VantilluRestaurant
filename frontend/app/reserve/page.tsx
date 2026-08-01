@@ -36,7 +36,7 @@ export default function ReservePage() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/reservations`, {
+      const response = await fetch(`${API_URL}/api/v1/reservations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

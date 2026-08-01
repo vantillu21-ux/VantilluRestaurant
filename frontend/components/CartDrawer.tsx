@@ -37,6 +37,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const [customerAddress, setCustomerAddress] = useState('');
   const [tableNo, setTableNo] = useState('');
   
+  // Idempotency Key for Orders
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  
   // OTP Verification States
   const [otpInput, setOtpInput] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -140,7 +143,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
     setOtpError('');
     setIsSendingOtp(true);
     try {
-      const res = await fetch(`${API_URL}/api/customer/send-otp`, {
+      const res = await fetch(`${API_URL}/api/v1/customer/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: customerEmail, phone: customerPhone })
@@ -168,7 +171,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
     setOtpError('');
     setIsVerifyingOtp(true);
     try {
-      const res = await fetch(`${API_URL}/api/customer/verify-otp`, {
+      const res = await fetch(`${API_URL}/api/v1/customer/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: customerEmail, otp: otpInput })
@@ -244,11 +247,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       order_type: deliveryType,
       notes: specialInstructions,
       table_no: deliveryType === 'DineIn' ? tableNo : '',
-      payment_method: paymentMethod
+      payment_method: paymentMethod,
+      idempotency_key: idempotencyKey
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/orders`, {
+      const response = await fetch(`${API_URL}/api/v1/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -264,6 +268,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
         setCustomerName('');
         setCustomerPhone('');
         setCustomerAddress('');
+        setIdempotencyKey(crypto.randomUUID());
       } else {
         alert(data.message || 'Failed to place order.');
       }
@@ -309,11 +314,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       notes: specialInstructions,
       table_no: deliveryType === 'DineIn' ? tableNo : '',
       payment_method: 'UPI',
-      transaction_id: utrInput
+      transaction_id: utrInput,
+      idempotency_key: idempotencyKey
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/orders`, {
+      const response = await fetch(`${API_URL}/api/v1/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -331,6 +337,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
         setCustomerName('');
         setCustomerPhone('');
         setCustomerAddress('');
+        setIdempotencyKey(crypto.randomUUID());
       } else {
         setPaymentError(data.message || 'Failed to place order.');
       }

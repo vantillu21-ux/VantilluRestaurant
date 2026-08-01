@@ -7,13 +7,13 @@ class APIException(Exception):
     status_code = 500
     message = "An unexpected error occurred."
 
-    def __init__(self, message=None, status_code=None, errors=None):
+    def __init__(self, message=None, status_code=None, details=None):
         super().__init__()
         if message is not None:
             self.message = message
         if status_code is not None:
             self.status_code = status_code
-        self.errors = errors
+        self.details = details
 
 class NotFoundException(APIException):
     """404 Exception mapping."""
@@ -40,7 +40,7 @@ def register_error_handlers(app):
     
     @app.errorhandler(APIException)
     def handle_api_exception(error):
-        return error_response(error.message, error.errors, error.status_code)
+        return error_response(error.message, error.details, error.status_code)
 
     @app.errorhandler(HTTPException)
     def handle_http_exception(error):

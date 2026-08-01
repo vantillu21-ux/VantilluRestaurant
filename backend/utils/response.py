@@ -11,13 +11,13 @@ def success_response(message, data=None, status_code=200):
         
     return jsonify(response), status_code
 
-def error_response(message, errors=None, status_code=400):
+def error_response(message, details=None, status_code=400):
     """Generates standard failure/error JSON payload."""
     response = {
         "success": False,
         "message": message
     }
-    if errors is not None:
-        response["errors"] = errors
+    if details is not None:
+        response["details"] = details
         
     return jsonify(response), status_code

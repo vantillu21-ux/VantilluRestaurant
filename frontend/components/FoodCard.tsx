@@ -222,27 +222,27 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                   <button
                     type="button"
                     onClick={() => setPortion('Single')}
-                    className={`py-1 text-[8px] font-bold rounded-lg cursor-pointer transition-all ${
+                    className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] font-bold rounded-lg cursor-pointer transition-all ${
                       portion === 'Single' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                     title={`Single Serving (₹${singlePrice})`}
                   >
-                    S (₹{singlePrice})
+                    Small (₹{singlePrice})
                   </button>
                   <button
                     type="button"
                     onClick={() => setPortion('Full')}
-                    className={`py-1 text-[8px] font-bold rounded-lg cursor-pointer transition-all ${
+                    className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] font-bold rounded-lg cursor-pointer transition-all ${
                       portion === 'Full' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                     title={`Full Serving (₹${fullPrice})`}
                   >
-                    F (₹{fullPrice})
+                    Full (₹{fullPrice})
                   </button>
                   <button
                     type="button"
                     onClick={() => setPortion('Family')}
-                    className={`py-1 text-[8px] font-bold rounded-lg cursor-pointer transition-all ${
+                    className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] font-bold rounded-lg cursor-pointer transition-all ${
                       portion === 'Family' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                     title={`Family Pack (₹${familyPrice})`}
@@ -252,7 +252,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                   <button
                     type="button"
                     onClick={() => setPortion('Jumbo')}
-                    className={`py-1 text-[8px] font-bold rounded-lg cursor-pointer transition-all ${
+                    className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] font-bold rounded-lg cursor-pointer transition-all ${
                       portion === 'Jumbo' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                     title={`Jumbo Serving (₹${jumboPrice})`}
@@ -266,7 +266,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                   <button
                     type="button"
                     onClick={() => setPortion('Half')}
-                    className={`py-1 text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
+                    className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
                       portion === 'Half' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                   >
@@ -275,7 +275,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                   <button
                     type="button"
                     onClick={() => setPortion('Full')}
-                    className={`py-1 text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
+                    className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
                       portion === 'Full' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                   >
@@ -288,7 +288,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                   <button
                     type="button"
                     onClick={() => setPortion('Single')}
-                    className={`py-1 text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
+                    className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
                       portion === 'Single' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                   >
@@ -297,7 +297,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                   <button
                     type="button"
                     onClick={() => setPortion('Full')}
-                    className={`py-1 text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
+                    className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
                       portion === 'Full' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                   >

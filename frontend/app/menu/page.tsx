@@ -17,7 +17,7 @@ export default function MenuPage() {
   // Fetch live menu from API on mount so admin updates reflect immediately
   useEffect(() => {
     setMenuLoading(true);
-    fetch(`${API_URL}/api/menu`)
+    fetch(`${API_URL}/api/v1/menu`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const data: MenuItem[] = await res.json();

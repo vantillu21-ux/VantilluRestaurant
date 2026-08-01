@@ -43,7 +43,7 @@ export default function Home() {
     }
 
     // Load settings from backend API
-    fetch(`${API_URL}/api/settings`)
+    fetch(`${API_URL}/api/v1/settings`)
       .then(res => res.json())
       .then(data => {
         if (data && data.restaurantName) {
@@ -65,7 +65,7 @@ export default function Home() {
     const token = localStorage.getItem('vantillu_admin_token');
     if (!token) return;
     try {
-      await fetch(`${API_URL}/api/settings/admin/settings`, {
+      await fetch(`${API_URL}/api/v1/settings/admin/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

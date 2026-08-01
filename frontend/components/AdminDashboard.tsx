@@ -119,7 +119,7 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_URL}/api/admin/login`, {
+      const res = await fetch(`${API_URL}/api/v1/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -164,7 +164,7 @@ export const AdminDashboard: React.FC = () => {
     
     // Automatically trigger OTP for admin
     try {
-      const res = await fetch(`${API_URL}/api/admin/forgot-password`, {
+      const res = await fetch(`${API_URL}/api/v1/admin/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: 'admin' }),
@@ -191,7 +191,7 @@ export const AdminDashboard: React.FC = () => {
     setErrorMsg('');
     setResetSuccessMsg('');
     try {
-      const res = await fetch(`${API_URL}/api/admin/verify-otp`, {
+      const res = await fetch(`${API_URL}/api/v1/admin/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: resetUsername, otp: resetOtp }),
@@ -219,7 +219,7 @@ export const AdminDashboard: React.FC = () => {
     }
     
     try {
-      const res = await fetch(`${API_URL}/api/admin/reset-password`, {
+      const res = await fetch(`${API_URL}/api/v1/admin/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: resetUsername, otp: resetOtp, newPassword: resetNewPassword }),
@@ -261,7 +261,7 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/api/admin/users`, {
+      const res = await fetch(`${API_URL}/api/v1/admin/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -310,7 +310,7 @@ export const AdminDashboard: React.FC = () => {
       if (editingPassword) {
         payload.password = editingPassword;
       }
-      const res = await fetch(`${API_URL}/api/admin/users/${editingUserId}`, {
+      const res = await fetch(`${API_URL}/api/v1/admin/users/${editingUserId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -339,7 +339,7 @@ export const AdminDashboard: React.FC = () => {
   const handleDeleteStaff = async (userId: number) => {
     if (!confirm('Are you sure you want to delete this staff user?')) return;
     try {
-      const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+      const res = await fetch(`${API_URL}/api/v1/admin/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -377,7 +377,7 @@ export const AdminDashboard: React.FC = () => {
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_URL}/api/settings/admin/settings`, {
+      const res = await fetch(`${API_URL}/api/v1/settings/admin/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -416,7 +416,7 @@ export const AdminDashboard: React.FC = () => {
     };
     
     try {
-      const url = selectedMenuItem ? `${API_URL}/api/admin/menu/${selectedMenuItem.id}` : `${API_URL}/api/admin/menu`;
+      const url = selectedMenuItem ? `${API_URL}/api/v1/admin/menu/${selectedMenuItem.id}` : `${API_URL}/api/v1/admin/menu`;
       const method = selectedMenuItem ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -451,7 +451,7 @@ export const AdminDashboard: React.FC = () => {
   const handleDeleteMenuItem = async (id: number) => {
     if (!confirm('Are you sure you want to delete this menu item?')) return;
     try {
-      const res = await fetch(`${API_URL}/api/admin/menu/${id}`, {
+      const res = await fetch(`${API_URL}/api/v1/admin/menu/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -492,55 +492,55 @@ export const AdminDashboard: React.FC = () => {
 
     try {
       // 1. Fetch Orders
-      const orderRes = await fetch(`${API_URL}/api/orders`, { headers });
+      const orderRes = await fetch(`${API_URL}/api/v1/orders`, { headers });
       if (orderRes.status === 401) {
         handleLogout();
         return;
       }
       if (orderRes.ok) {
         const oData = await orderRes.json();
-        setOrders(oData);
+        setOrders(oData.data || oData);
       }
 
       // 2. Fetch Reservations
-      const resRes = await fetch(`${API_URL}/api/reservations`, { headers });
+      const resRes = await fetch(`${API_URL}/api/v1/reservations`, { headers });
       if (resRes.ok) {
         const rData = await resRes.json();
-        setReservations(rData);
+        setReservations(rData.data || rData);
       }
 
       // 3. Fetch Party Orders
-      const partyRes = await fetch(`${API_URL}/api/party-orders`, { headers });
+      const partyRes = await fetch(`${API_URL}/api/v1/party-orders`, { headers });
       if (partyRes.ok) {
         const pData = await partyRes.json();
-        setParties(pData);
+        setParties(pData.data || pData);
       }
 
       // 4. Fetch Analytics
-      const analRes = await fetch(`${API_URL}/api/analytics`, { headers });
+      const analRes = await fetch(`${API_URL}/api/v1/analytics`, { headers });
       if (analRes.ok) {
         const aData = await analRes.json();
-        setAnalytics(aData);
+        setAnalytics(aData.data || aData);
       }
 
       // 4.5. Fetch Menu Catalog
-      const menuRes = await fetch(`${API_URL}/api/menu`);
+      const menuRes = await fetch(`${API_URL}/api/v1/menu`);
       if (menuRes.ok) {
         const mData = await menuRes.json();
-        setMenuItems(mData);
+        setMenuItems(mData.data || mData);
       }
 
       // 4.6. Fetch Website settings
-      const settingsRes = await fetch(`${API_URL}/api/settings`);
+      const settingsRes = await fetch(`${API_URL}/api/v1/settings`);
       if (settingsRes.ok) {
         const sData = await settingsRes.json();
-        setWebSettings(sData);
+        setWebSettings(sData.data || sData);
       }
 
       // 5. Fetch Users
       const cachedPerms = localStorage.getItem('vantillu_admin_permissions') || userPermissions;
       if (cachedPerms === 'all' || cachedPerms.split(',').includes('users')) {
-        const usersRes = await fetch(`${API_URL}/api/admin/users`, { headers });
+        const usersRes = await fetch(`${API_URL}/api/v1/admin/users`, { headers });
         if (usersRes.ok) {
           const uData = await usersRes.json();
           setUsersList(uData.data || uData); // Handle both standardized and legacy
@@ -557,8 +557,8 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     if (isLoggedIn && token) {
       fetchDashboardData();
-      // Auto-refresh orders every 10 seconds (Live orders)
-      const interval = setInterval(fetchDashboardData, 10000);
+      // Auto-refresh orders every 5 seconds (Live orders short-polling)
+      const interval = setInterval(fetchDashboardData, 5000);
       return () => clearInterval(interval);
     }
   }, [isLoggedIn, token, userPermissions]);
@@ -567,7 +567,7 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const verifyToken = async (cachedToken: string) => {
       try {
-        const res = await fetch(`${API_URL}/api/admin/verify`, {
+        const res = await fetch(`${API_URL}/api/v1/admin/verify`, {
           headers: { 'Authorization': `Bearer ${cachedToken}` }
         });
         const data = await res.json();
@@ -627,7 +627,7 @@ export const AdminDashboard: React.FC = () => {
   // Update order status route trigger
   const handleUpdateOrderStatus = async (orderId: number, nextStatus: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/orders/${orderId}/status`, {
+      const res = await fetch(`${API_URL}/api/v1/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -649,7 +649,7 @@ export const AdminDashboard: React.FC = () => {
   // Update reservation status trigger
   const handleUpdateReservationStatus = async (resId: number, nextStatus: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/reservations/${resId}/status`, {
+      const res = await fetch(`${API_URL}/api/v1/reservations/${resId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -674,7 +674,7 @@ export const AdminDashboard: React.FC = () => {
     const headers = Object.keys(data[0]).join(',');
     const rows = data.map(item => 
       Object.values(item).map(val => 
-        typeof val === 'object' ? `"${JSON.stringify(val).replace(/"/g, '""')}"` : `"${val}"`
+        typeof val === 'object' ? `"${JSON.stringify(val).replace(/"/g, '""'"` : `"${val}"`
       ).join(',')
     );
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join('\n');
@@ -728,12 +728,12 @@ export const AdminDashboard: React.FC = () => {
                 <div className="space-y-4 text-center pb-4">
                   <p className="text-xs text-white/70">Initializing secure password reset for Admin...</p>
                   
-                  {errorMsg && (
+                  
                     <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
-                  )}
+                  
                   {resetSuccessMsg && (
                     <p className="text-xs text-green-400 text-center font-semibold">{resetSuccessMsg}</p>
-                  )}
+                  
 
                   <div className="text-center pt-2">
                     <button
@@ -749,7 +749,7 @@ export const AdminDashboard: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              )}
+              
 
               {resetStep === 2 && (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
@@ -759,19 +759,19 @@ export const AdminDashboard: React.FC = () => {
                       type="text"
                       required
                       value={resetOtp}
-                      onChange={(e) => setResetOtp(e.target.value)}
+                      onChange={(e) => setResetOtp(e.target.value
                       placeholder="e.g. 483927"
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white text-center tracking-widest"
                       maxLength={6}
                     />
                   </div>
                   
-                  {errorMsg && (
+                  
                     <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
-                  )}
+                  
                   {resetSuccessMsg && (
                     <p className="text-xs text-green-400 text-center font-semibold">{resetSuccessMsg}</p>
-                  )}
+                  
 
                   <button
                     type="submit"
@@ -780,7 +780,7 @@ export const AdminDashboard: React.FC = () => {
                     Verify OTP
                   </button>
                 </form>
-              )}
+              
 
               {resetStep === 3 && (
                 <form onSubmit={handleResetPassword} className="space-y-4">
@@ -790,7 +790,7 @@ export const AdminDashboard: React.FC = () => {
                       type="password"
                       required
                       value={resetNewPassword}
-                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      onChange={(e) => setResetNewPassword(e.target.value
                       placeholder="Enter new password"
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
                     />
@@ -801,18 +801,18 @@ export const AdminDashboard: React.FC = () => {
                       type="password"
                       required
                       value={resetConfirmPassword}
-                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      onChange={(e) => setResetConfirmPassword(e.target.value
                       placeholder="Confirm new password"
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
                     />
                   </div>
                   
-                  {errorMsg && (
+                  
                     <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
-                  )}
+                  
                   {resetSuccessMsg && (
                     <p className="text-xs text-green-400 text-center font-semibold">{resetSuccessMsg}</p>
-                  )}
+                  
 
                   <button
                     type="submit"
@@ -821,7 +821,7 @@ export const AdminDashboard: React.FC = () => {
                     Reset Password
                   </button>
                 </form>
-              )}
+              
             </>
           ) : (
             <>
@@ -836,7 +836,7 @@ export const AdminDashboard: React.FC = () => {
                     type="text"
                     required
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e) => setUsername(e.target.value
                     placeholder="admin"
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
                   />
@@ -847,15 +847,15 @@ export const AdminDashboard: React.FC = () => {
                     type="password"
                     required
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value
                     placeholder="vantillu123"
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
                   />
                 </div>
                 
-                {errorMsg && (
+                
                   <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
-                )}
+                
 
                 <button
                   type="submit"
@@ -875,7 +875,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </form>
             </>
-          )}
+          
         </motion.div>
       </div>
     );
@@ -962,7 +962,7 @@ export const AdminDashboard: React.FC = () => {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(targetTab as any)}
+              onClick={() => setActiveTab(targetTab as any
               className={`
                 px-4 py-2.5 rounded-xl cursor-pointer text-xs font-semibold uppercase tracking-wider flex items-center gap-2 transition-all duration-300
                 ${isActive ? 'bg-brand-gold text-brand-brown shadow' : 'text-white/60 hover:text-white'}
@@ -972,7 +972,7 @@ export const AdminDashboard: React.FC = () => {
               {tab.label}
             </button>
           );
-        })}
+        }
       </nav>
 
       {/* Main Panel Content */}
@@ -987,7 +987,7 @@ export const AdminDashboard: React.FC = () => {
                   type="text"
                   placeholder="search by name or phone"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => setSearchTerm(e.target.value
                   className="bg-transparent border-none text-xs outline-none w-full text-white"
                 />
               </div>
@@ -996,7 +996,7 @@ export const AdminDashboard: React.FC = () => {
                 {/* Status Filter */}
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => setStatusFilter(e.target.value
                   className="bg-black/30 border border-white/10 text-xs px-3 py-2 rounded-xl text-white cursor-pointer"
                 >
                   <option value="All">All Statuses</option>
@@ -1009,7 +1009,7 @@ export const AdminDashboard: React.FC = () => {
 
                 {/* CSV download button */}
                 <button
-                  onClick={() => exportToCSV(orders, 'vantillu_orders')}
+                  onClick={() => exportToCSV(orders, 'vantillu_orders'
                   disabled={orders.length === 0}
                   className="bg-brand-brown/40 border border-brand-gold/30 hover:border-brand-gold text-brand-gold text-xs px-4 py-2 rounded-xl flex items-center gap-2 cursor-pointer transition-colors"
                 >
@@ -1057,7 +1057,7 @@ export const AdminDashboard: React.FC = () => {
                                 • {item.name} <span className="text-[10px] text-white/40">({item.spice_level})</span> x{item.quantity}
                                 {item.notes && <span className="text-[9px] text-brand-orange block pl-2 font-mono">"{item.notes}"</span>}
                               </p>
-                            ))}
+                            )
                             {o.notes && <p className="text-[10px] text-brand-gold italic mt-2">Instruction: {o.notes}</p>}
                           </td>
                           <td className="p-4 font-serif font-semibold text-brand-gold">₹{o.grand_total}</td>
@@ -1069,7 +1069,7 @@ export const AdminDashboard: React.FC = () => {
                               <p className="font-semibold text-brand-gold uppercase text-[9px]">{o.payment_method || 'COD'}</p>
                               {o.transaction_id && (
                                 <p className="font-mono mt-0.5 bg-black/30 px-1.5 py-0.5 rounded border border-white/5 select-all text-white/80">UTR: {o.transaction_id}</p>
-                              )}
+                              
                             </div>
                           </td>
                           <td className="p-4">
@@ -1089,7 +1089,7 @@ export const AdminDashboard: React.FC = () => {
                                 <span className="block py-0.5 px-2 rounded text-[9px] font-bold uppercase bg-amber-400/15 text-amber-400 border border-amber-400/25 w-max">
                                   ⚠ Verify UPI Payment
                                 </span>
-                              )}
+                              
                             </div>
                           </td>
                           <td className="p-4">
@@ -1097,7 +1097,7 @@ export const AdminDashboard: React.FC = () => {
                               {userRole === 'Delivery' ? (
                                 o.status === 'Ready' && (
                                   <button
-                                    onClick={() => handleUpdateOrderStatus(o.id, 'Completed')}
+                                    onClick={() => handleUpdateOrderStatus(o.id, 'Completed'
                                     className="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded-lg font-bold cursor-pointer transition-colors"
                                   >
                                     Delivered
@@ -1107,49 +1107,49 @@ export const AdminDashboard: React.FC = () => {
                                 <>
                                   {o.status === 'Pending' && (
                                     <button
-                                      onClick={() => handleUpdateOrderStatus(o.id, 'Preparing')}
+                                      onClick={() => handleUpdateOrderStatus(o.id, 'Preparing'
                                       className="bg-brand-orange hover:bg-brand-orange/90 text-white py-1 px-3 rounded-lg font-bold cursor-pointer transition-colors"
                                     >
                                       Prepare
                                     </button>
-                                  )}
+                                  
                                   {o.status === 'Preparing' && (
                                     <button
-                                      onClick={() => handleUpdateOrderStatus(o.id, 'Ready')}
+                                      onClick={() => handleUpdateOrderStatus(o.id, 'Ready'
                                       className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded-lg font-bold cursor-pointer transition-colors"
                                     >
                                       Ready
                                     </button>
-                                  )}
+                                  
                                   {o.status === 'Ready' && (
                                     <button
-                                      onClick={() => handleUpdateOrderStatus(o.id, 'Completed')}
+                                      onClick={() => handleUpdateOrderStatus(o.id, 'Completed'
                                       className="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded-lg font-bold cursor-pointer transition-colors"
                                     >
                                       Complete
                                     </button>
-                                  )}
+                                  
                                   {o.status !== 'Completed' && o.status !== 'Cancelled' && (
                                     <button
-                                      onClick={() => handleUpdateOrderStatus(o.id, 'Cancelled')}
+                                      onClick={() => handleUpdateOrderStatus(o.id, 'Cancelled'
                                       className="border border-red-500/30 hover:bg-red-500 hover:text-white text-red-400 py-1 px-2.5 rounded-lg cursor-pointer transition-all"
                                     >
                                       Cancel
                                     </button>
-                                  )}
+                                  
                                 </>
-                              )}
+                              
                             </div>
                           </td>
                         </tr>
                       ))
-                    )}
+                    
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
-        )}
+        
 
         {activeTab === 'kitchen' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1180,42 +1180,42 @@ export const AdminDashboard: React.FC = () => {
                           {item.notes && <p className="text-[11px] text-yellow-400 font-mono mt-1">"{item.notes}"</p>}
                         </div>
                       </div>
-                    ))}
+                    )
                   </div>
 
                   {o.notes && (
                     <div className="bg-black/30 p-2.5 rounded-xl text-xs text-white/70 italic border border-white/5 mb-4">
                       Special Note: {o.notes}
                     </div>
-                  )}
+                  
                 </div>
 
                 <div className="flex gap-2 pt-2 border-t border-white/5">
                   {o.status === 'Pending' ? (
                     <button
-                      onClick={() => handleUpdateOrderStatus(o.id, 'Preparing')}
+                      onClick={() => handleUpdateOrderStatus(o.id, 'Preparing'
                       className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white py-2.5 rounded-xl font-bold cursor-pointer text-xs uppercase transition-colors"
                     >
                       Start Cooking
                     </button>
                   ) : (
                     <button
-                      onClick={() => handleUpdateOrderStatus(o.id, 'Ready')}
+                      onClick={() => handleUpdateOrderStatus(o.id, 'Ready'
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold cursor-pointer text-xs uppercase transition-colors"
                     >
                       Mark as Prepared
                     </button>
-                  )}
+                  
                 </div>
               </div>
-            ))}
+            )
             {orders.filter(o => o.status === 'Pending' || o.status === 'Preparing').length === 0 && (
               <div className="col-span-full py-16 text-center text-white/40 italic">
                 👨‍🍳 No active orders to prepare in the kitchen queue. All done!
               </div>
-            )}
+            
           </div>
-        )}
+        
 
         {activeTab === 'reservations' && (
           <div className="bg-[#2E1A1C]/35 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
@@ -1265,29 +1265,29 @@ export const AdminDashboard: React.FC = () => {
                             {r.status === 'Pending' && (
                               <>
                                 <button
-                                  onClick={() => handleUpdateReservationStatus(r.id, 'Confirmed')}
+                                  onClick={() => handleUpdateReservationStatus(r.id, 'Confirmed'
                                   className="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded-lg font-bold cursor-pointer"
                                 >
                                   Confirm
                                 </button>
                                 <button
-                                  onClick={() => handleUpdateReservationStatus(r.id, 'Cancelled')}
+                                  onClick={() => handleUpdateReservationStatus(r.id, 'Cancelled'
                                   className="border border-red-500/30 text-red-400 py-1 px-2 rounded-lg cursor-pointer"
                                 >
                                   Decline
                                 </button>
                               </>
-                            )}
+                            
                           </div>
                         </td>
                       </tr>
                     ))
-                  )}
+                  
                 </tbody>
               </table>
             </div>
           </div>
-        )}
+        
 
         {activeTab === 'parties' && (
           <div className="bg-[#2E1A1C]/35 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
@@ -1333,12 +1333,12 @@ export const AdminDashboard: React.FC = () => {
                         </td>
                       </tr>
                     ))
-                  )}
+                  
                 </tbody>
               </table>
             </div>
           </div>
-        )}
+        
 
         {activeTab === 'staff' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-white">
@@ -1389,7 +1389,7 @@ export const AdminDashboard: React.FC = () => {
                                   };
                                   return labels[p] || p;
                                 }).join(', ')
-                              )}
+                              
                             </td>
                             <td className="p-4">
                               <div className="flex gap-2 justify-center">
@@ -1409,18 +1409,18 @@ export const AdminDashboard: React.FC = () => {
                                 </button>
                                 {u.username !== 'admin' && (
                                   <button
-                                    onClick={() => handleDeleteStaff(u.id)}
+                                    onClick={() => handleDeleteStaff(u.id
                                     className="p-1.5 rounded hover:bg-red-500/10 text-red-400 transition-colors cursor-pointer"
                                     title="Delete User"
                                   >
                                     <Trash2 size={13} />
                                   </button>
-                                )}
+                                
                               </div>
                             </td>
                           </tr>
                         ))
-                      )}
+                      
                     </tbody>
                   </table>
                 </div>
@@ -1437,7 +1437,7 @@ export const AdminDashboard: React.FC = () => {
                       Edit Staff Member
                     </h3>
                     <button
-                      onClick={() => setEditingUserId(null)}
+                      onClick={() => setEditingUserId(null
                       className="text-xs text-white/50 hover:text-white cursor-pointer"
                     >
                       Cancel
@@ -1451,7 +1451,7 @@ export const AdminDashboard: React.FC = () => {
                         type="text"
                         required
                         value={editingUsername}
-                        onChange={(e) => setEditingUsername(e.target.value)}
+                        onChange={(e) => setEditingUsername(e.target.value
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
                     </div>
@@ -1462,7 +1462,7 @@ export const AdminDashboard: React.FC = () => {
                         type="email"
                         required
                         value={editingEmail}
-                        onChange={(e) => setEditingEmail(e.target.value)}
+                        onChange={(e) => setEditingEmail(e.target.value
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
                     </div>
@@ -1472,7 +1472,7 @@ export const AdminDashboard: React.FC = () => {
                       <input
                         type="password"
                         value={editingPassword}
-                        onChange={(e) => setEditingPassword(e.target.value)}
+                        onChange={(e) => setEditingPassword(e.target.value
                         placeholder="••••••••"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
@@ -1482,7 +1482,7 @@ export const AdminDashboard: React.FC = () => {
                       <label className="text-[10px] text-white/50 uppercase">Role</label>
                       <select
                         value={editingRole}
-                        onChange={(e) => setEditingRole(e.target.value)}
+                        onChange={(e) => setEditingRole(e.target.value
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white cursor-pointer"
                       >
                         <option value="Owner">Owner</option>
@@ -1506,7 +1506,7 @@ export const AdminDashboard: React.FC = () => {
                           <label key={p.id} className="flex items-center gap-2 text-white/70 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={editingPerms.includes(p.id)}
+                              checked={editingPerms.includes(p.id
                               onChange={(e) => {
                                 if (e.target.checked) {
                                   setEditingPerms([...editingPerms, p.id]);
@@ -1518,7 +1518,7 @@ export const AdminDashboard: React.FC = () => {
                             />
                             <span>{p.label}</span>
                           </label>
-                        ))}
+                        )
                       </div>
                     </div>
 
@@ -1544,7 +1544,7 @@ export const AdminDashboard: React.FC = () => {
                         type="text"
                         required
                         value={newStaffUsername}
-                        onChange={(e) => setNewStaffUsername(e.target.value)}
+                        onChange={(e) => setNewStaffUsername(e.target.value
                         placeholder="e.g. chef_ravi"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
@@ -1556,7 +1556,7 @@ export const AdminDashboard: React.FC = () => {
                         type="email"
                         required
                         value={newStaffEmail}
-                        onChange={(e) => setNewStaffEmail(e.target.value)}
+                        onChange={(e) => setNewStaffEmail(e.target.value
                         placeholder="e.g. chef.ravi@gmail.com"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
@@ -1568,7 +1568,7 @@ export const AdminDashboard: React.FC = () => {
                         type="password"
                         required
                         value={newStaffPassword}
-                        onChange={(e) => setNewStaffPassword(e.target.value)}
+                        onChange={(e) => setNewStaffPassword(e.target.value
                         placeholder="••••••••"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
@@ -1578,7 +1578,7 @@ export const AdminDashboard: React.FC = () => {
                       <label className="text-[10px] text-white/50 uppercase">Role</label>
                       <select
                         value={newStaffRole}
-                        onChange={(e) => setNewStaffRole(e.target.value)}
+                        onChange={(e) => setNewStaffRole(e.target.value
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white cursor-pointer"
                       >
                         <option value="Owner">Owner</option>
@@ -1602,7 +1602,7 @@ export const AdminDashboard: React.FC = () => {
                           <label key={p.id} className="flex items-center gap-2 text-white/70 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={newStaffPerms.includes(p.id)}
+                              checked={newStaffPerms.includes(p.id
                               onChange={(e) => {
                                 if (e.target.checked) {
                                   setNewStaffPerms([...newStaffPerms, p.id]);
@@ -1614,7 +1614,7 @@ export const AdminDashboard: React.FC = () => {
                             />
                             <span>{p.label}</span>
                           </label>
-                        ))}
+                        )
                       </div>
                     </div>
 
@@ -1626,10 +1626,10 @@ export const AdminDashboard: React.FC = () => {
                     </button>
                   </form>
                 </div>
-              )}
+              
             </div>
           </div>
-        )}
+        
 
         {activeTab === 'analytics' && (
           <div className="space-y-8 text-white">
@@ -1668,7 +1668,7 @@ export const AdminDashboard: React.FC = () => {
                           <td className="p-4 font-serif font-bold text-brand-gold">₹{d.revenue}</td>
                         </tr>
                       ))
-                    )}
+                    
                   </tbody>
                 </table>
               </div>
@@ -1704,7 +1704,7 @@ export const AdminDashboard: React.FC = () => {
                             <td className="p-4 font-serif font-bold text-brand-gold">₹{m.revenue}</td>
                           </tr>
                         ))
-                      )}
+                      
                     </tbody>
                   </table>
                 </div>
@@ -1739,14 +1739,14 @@ export const AdminDashboard: React.FC = () => {
                             <td className="p-4 font-serif font-bold text-brand-gold">₹{y.revenue}</td>
                           </tr>
                         ))
-                      )}
+                      
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        
 
         {activeTab === 'menu' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-white">
@@ -1762,7 +1762,7 @@ export const AdminDashboard: React.FC = () => {
                     type="text"
                     placeholder="Search menu item..."
                     value={menuSearch}
-                    onChange={(e) => setMenuSearch(e.target.value)}
+                    onChange={(e) => setMenuSearch(e.target.value
                     className="bg-transparent border-none text-xs outline-none w-full text-white"
                   />
                 </div>
@@ -1836,7 +1836,7 @@ export const AdminDashboard: React.FC = () => {
                                     </button>
 
                                     <button
-                                      onClick={() => handleDeleteMenuItem(item.id)}
+                                      onClick={() => handleDeleteMenuItem(item.id
                                       className="p-1.5 rounded hover:bg-red-500/10 text-red-400 transition-colors cursor-pointer"
                                       title="Delete Menu Item"
                                     >
@@ -1846,7 +1846,7 @@ export const AdminDashboard: React.FC = () => {
                                 </td>
                               </tr>
                             ))
-                        )}
+                        
                     </tbody>
                   </table>
                 </div>
@@ -1864,7 +1864,7 @@ export const AdminDashboard: React.FC = () => {
                     <button onClick={resetMenuForm} className="text-xs text-white/50 hover:text-white cursor-pointer">
                       Cancel
                     </button>
-                  )}
+                  
                 </div>
 
                 <form onSubmit={handleSaveMenuItem} className="space-y-4 text-xs">
@@ -1874,7 +1874,7 @@ export const AdminDashboard: React.FC = () => {
                       type="text"
                       required
                       value={menuItemName}
-                      onChange={(e) => setMenuItemName(e.target.value)}
+                      onChange={(e) => setMenuItemName(e.target.value
                       placeholder="e.g. Masala Dosa"
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                     />
@@ -1885,7 +1885,7 @@ export const AdminDashboard: React.FC = () => {
                       <label className="text-[10px] text-white/50 uppercase block">Portion Style</label>
                       <select
                         value={menuItemPortion}
-                        onChange={(e) => setMenuItemPortion(e.target.value)}
+                        onChange={(e) => setMenuItemPortion(e.target.value
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white cursor-pointer"
                       >
                         <option value="standard">Standard Single Price</option>
@@ -1898,7 +1898,7 @@ export const AdminDashboard: React.FC = () => {
                       <label className="text-[10px] text-white/50 uppercase block">Diet type</label>
                       <select
                         value={menuItemVeg ? 'veg' : 'non-veg'}
-                        onChange={(e) => setMenuItemVeg(e.target.value === 'veg')}
+                        onChange={(e) => setMenuItemVeg(e.target.value === 'veg'
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white cursor-pointer"
                       >
                         <option value="veg">Vegetarian</option>
@@ -1914,7 +1914,7 @@ export const AdminDashboard: React.FC = () => {
                         type="number"
                         required
                         value={menuItemPrice}
-                        onChange={(e) => setMenuItemPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                        onChange={(e) => setMenuItemPrice(e.target.value === '' ? '' : Number(e.target.value)
                         placeholder="e.g. 150"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
@@ -1927,7 +1927,7 @@ export const AdminDashboard: React.FC = () => {
                           type="number"
                           required
                           value={menuItemHalfPrice}
-                          onChange={(e) => setMenuItemHalfPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                          onChange={(e) => setMenuItemHalfPrice(e.target.value === '' ? '' : Number(e.target.value)
                           placeholder="Half price"
                           className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                         />
@@ -1938,7 +1938,7 @@ export const AdminDashboard: React.FC = () => {
                           type="number"
                           required
                           value={menuItemFullPrice}
-                          onChange={(e) => setMenuItemFullPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                          onChange={(e) => setMenuItemFullPrice(e.target.value === '' ? '' : Number(e.target.value)
                           placeholder="Full price"
                           className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                         />
@@ -1952,7 +1952,7 @@ export const AdminDashboard: React.FC = () => {
                           type="number"
                           required
                           value={menuItemSinglePrice}
-                          onChange={(e) => setMenuItemSinglePrice(e.target.value === '' ? '' : Number(e.target.value))}
+                          onChange={(e) => setMenuItemSinglePrice(e.target.value === '' ? '' : Number(e.target.value)
                           placeholder="Single price"
                           className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                         />
@@ -1963,20 +1963,20 @@ export const AdminDashboard: React.FC = () => {
                           type="number"
                           required
                           value={menuItemFullPrice}
-                          onChange={(e) => setMenuItemFullPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                          onChange={(e) => setMenuItemFullPrice(e.target.value === '' ? '' : Number(e.target.value)
                           placeholder="Family price"
                           className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                         />
                       </div>
                     </div>
-                  )}
+                  
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] text-white/50 uppercase block">Cuisine Group</label>
                       <select
                         value={menuItemCuisine}
-                        onChange={(e) => setMenuItemCuisine(e.target.value)}
+                        onChange={(e) => setMenuItemCuisine(e.target.value
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white cursor-pointer"
                       >
                         <option value="Indian">Indian</option>
@@ -1994,7 +1994,7 @@ export const AdminDashboard: React.FC = () => {
                         type="text"
                         required
                         value={menuItemCategory}
-                        onChange={(e) => setMenuItemCategory(e.target.value)}
+                        onChange={(e) => setMenuItemCategory(e.target.value
                         placeholder="e.g. Soup, Curry"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
@@ -2006,7 +2006,7 @@ export const AdminDashboard: React.FC = () => {
                       <label className="text-[10px] text-white/50 uppercase block">Spice Level</label>
                       <select
                         value={menuItemSpice}
-                        onChange={(e) => setMenuItemSpice(e.target.value)}
+                        onChange={(e) => setMenuItemSpice(e.target.value
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white cursor-pointer"
                       >
                         <option value="Mild">Mild</option>
@@ -2022,7 +2022,7 @@ export const AdminDashboard: React.FC = () => {
                         type="text"
                         required
                         value={menuItemPrep}
-                        onChange={(e) => setMenuItemPrep(e.target.value)}
+                        onChange={(e) => setMenuItemPrep(e.target.value
                         placeholder="e.g. 15 mins"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
                       />
@@ -2033,7 +2033,7 @@ export const AdminDashboard: React.FC = () => {
                     <label className="text-[10px] text-white/50 uppercase">Description</label>
                     <textarea
                       value={menuItemDesc}
-                      onChange={(e) => setMenuItemDesc(e.target.value)}
+                      onChange={(e) => setMenuItemDesc(e.target.value
                       placeholder="Item recipe description..."
                       rows={2}
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 focus:border-brand-gold outline-none text-white"
@@ -2050,7 +2050,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+        
 
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto text-white">
@@ -2066,7 +2066,7 @@ export const AdminDashboard: React.FC = () => {
                     type="text"
                     required
                     value={webSettings.restaurantName || ''}
-                    onChange={(e) => setWebSettings({...webSettings, restaurantName: e.target.value})}
+                    onChange={(e) => setWebSettings({...webSettings, restaurantName: e.target.value}
                     placeholder="e.g. Vantillu Resto"
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white font-medium"
                   />
@@ -2078,7 +2078,7 @@ export const AdminDashboard: React.FC = () => {
                     type="text"
                     required
                     value={webSettings.tagline || ''}
-                    onChange={(e) => setWebSettings({...webSettings, tagline: e.target.value})}
+                    onChange={(e) => setWebSettings({...webSettings, tagline: e.target.value}
                     placeholder="e.g. Traditional Telugu Heritage"
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white"
                   />
@@ -2090,7 +2090,7 @@ export const AdminDashboard: React.FC = () => {
                     type="text"
                     required
                     value={webSettings.headline || ''}
-                    onChange={(e) => setWebSettings({...webSettings, headline: e.target.value})}
+                    onChange={(e) => setWebSettings({...webSettings, headline: e.target.value}
                     placeholder="e.g. Experience the Taste of Home"
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white"
                   />
@@ -2101,7 +2101,7 @@ export const AdminDashboard: React.FC = () => {
                   <textarea
                     required
                     value={webSettings.subheadline || ''}
-                    onChange={(e) => setWebSettings({...webSettings, subheadline: e.target.value})}
+                    onChange={(e) => setWebSettings({...webSettings, subheadline: e.target.value}
                     placeholder="Welcome descriptions..."
                     rows={2}
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white"
@@ -2118,7 +2118,7 @@ export const AdminDashboard: React.FC = () => {
                         type="text"
                         required
                         value={webSettings.prideTitle || ''}
-                        onChange={(e) => setWebSettings({...webSettings, prideTitle: e.target.value})}
+                        onChange={(e) => setWebSettings({...webSettings, prideTitle: e.target.value}
                         placeholder="e.g. Special Chicken Biryani"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white"
                       />
@@ -2129,7 +2129,7 @@ export const AdminDashboard: React.FC = () => {
                         type="text"
                         required
                         value={webSettings.pridePrice || ''}
-                        onChange={(e) => setWebSettings({...webSettings, pridePrice: e.target.value})}
+                        onChange={(e) => setWebSettings({...webSettings, pridePrice: e.target.value}
                         placeholder="e.g. 250"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white"
                       />
@@ -2141,7 +2141,7 @@ export const AdminDashboard: React.FC = () => {
                     <textarea
                       required
                       value={webSettings.prideDescription || ''}
-                      onChange={(e) => setWebSettings({...webSettings, prideDescription: e.target.value})}
+                      onChange={(e) => setWebSettings({...webSettings, prideDescription: e.target.value}
                       placeholder="Special ingredients or preparation description..."
                       rows={2}
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white"
@@ -2158,7 +2158,7 @@ export const AdminDashboard: React.FC = () => {
               </form>
             </div>
           </div>
-        )}
+        
 
         {activeTab === 'view_website' && (
           <div className="space-y-6 text-white h-full">
@@ -2200,7 +2200,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+        
       </main>
     </div>
   );

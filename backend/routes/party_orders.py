@@ -12,6 +12,7 @@ party_orders_bp = Blueprint('party_orders', __name__)
 def request_party():
     """Submits a large party/catering booking inquiry."""
     data = validate_party_payload(request.get_json())
+    from extensions import db
     
     try:
         new_party = PartyOrderRepository.create(
@@ -24,14 +25,18 @@ def request_party():
             description=data.get('description'),
             status='Pending'
         )
+        db.session.commit()
+        
         logger.info(f"Party inquiry request {new_party.id} created successfully for {new_party.name}.")
         return jsonify({
+            'success': True,
             'message': 'Party inquiry submitted successfully!',
-            'party_order': new_party.to_dict()
+            'data': new_party.to_dict()
         }), 201
     except Exception as e:
+        db.session.rollback()
         logger.exception(f"Error submitting party inquiry: {e}")
-        return jsonify({"message": f"Failed to submit party inquiry: {e}"}), 500
+        return jsonify({"success": False, "message": f"Failed to submit party inquiry: {e}"}), 500
 
 @party_orders_bp.route('', methods=['GET'])
 @admin_required
@@ -53,18 +58,36 @@ def update_party_status(party_id):
     if new_status not in valid_statuses:
         return jsonify({"message": f"Invalid status value. Must be one of: {valid_statuses}"}), 400
         
-    party = PartyOrderRepository.get_by_id(party_id)
-    if not party:
-        return jsonify({"success": False, "message": "Party inquiry not found"}), 404
-        
+    from extensions import db
+    from models.party_order import PartyOrder
+    
     try:
-        updated = PartyOrderRepository.update(party_id, status=new_status)
-        audit_logger.info(f"[UPDATE] Endpoint: /api/party-orders/{party_id}/status, Record ID: {party_id}, Old Status: {party.status}, New Status: {new_status}, DB commit success: True")
+        party = db.session.query(PartyOrder).with_for_update().get(party_id)
+        if not party:
+            db.session.rollback()
+            return jsonify({"success": False, "message": "Party inquiry not found"}), 404
+
+        client_updated_at = data.get('updated_at')
+        if client_updated_at and party.updated_at:
+            if client_updated_at != party.updated_at.isoformat():
+                db.session.rollback()
+                return jsonify({
+                    "success": False,
+                    "message": "Record has been modified by another user.",
+                    "action": "refresh_required"
+                }), 409
+                
+        old_status = party.status
+        party.status = new_status
+        db.session.commit()
+        
+        audit_logger.info(f"[UPDATE] Endpoint: /api/party-orders/{party_id}/status, Record ID: {party_id}, Old Status: {old_status}, New Status: {new_status}, DB commit success: True")
         return jsonify({
             'success': True,
             'message': f'Party status updated to {new_status}!',
-            'data': updated.to_dict()
+            'data': party.to_dict()
         }), 200
     except Exception as e:
+        db.session.rollback()
         audit_logger.error(f"[UPDATE] Endpoint: /api/party-orders/{party_id}/status, Record ID: {party_id}, DB commit success: False")
         return jsonify({"success": False, "message": f"Failed to update party status: {e}"}), 500

@@ -60,6 +60,18 @@ def place_order():
     
     # For UPI orders, capture the UTR reference number submitted by the customer
     transaction_id = data.get('transaction_id') if payment_method == 'UPI' else None
+    # Idempotency check
+    idempotency_key = data.get('idempotency_key')
+    if idempotency_key:
+        from models.order import Order
+        existing_order = Order.query.filter_by(idempotency_key=idempotency_key).first()
+        if existing_order:
+            return jsonify({
+                "success": True,
+                "message": "Order already placed.",
+                "data": existing_order.to_dict(),
+                "payment_required": False
+            }), 200
 
     try:
         # 2. Save order to database
@@ -78,8 +90,12 @@ def place_order():
             table_no=data.get('table_no'),
             payment_method=payment_method,
             transaction_id=transaction_id,
+            idempotency_key=idempotency_key,
             status='Pending'
         )
+        
+        from extensions import db
+        db.session.commit()
         
         if payment_method == 'UPI':
             logger.info(f"UPI Order {new_order.id} placed. UTR: {transaction_id}. Pending manual staff verification.")
@@ -88,14 +104,17 @@ def place_order():
             logger.info(f"COD Order {new_order.id} placed successfully.")
 
         return jsonify({
+            'success': True,
             'message': 'Order placed successfully!',
-            'order': new_order.to_dict(),
+            'data': new_order.to_dict(),
             'payment_required': False
         }), 201
         
     except Exception as e:
+        from extensions import db
+        db.session.rollback()
         logger.exception(f"Error during order registration: {e}")
-        return jsonify({"message": f"Failed to place order: {e}"}), 500
+        return jsonify({"success": False, "message": f"Failed to place order: {e}"}), 500
 
 
 @orders_bp.route('', methods=['GET'])
@@ -111,25 +130,64 @@ def update_order_status(order_id):
     """Updates order progression status (KDS controls)."""
     data = request.get_json()
     if not data or 'status' not in data:
-        return jsonify({"message": "Field 'status' is required."}), 400
+        return jsonify({"success": False, "message": "Field 'status' is required."}), 400
         
     new_status = data['status']
     valid_statuses = ['Pending', 'Accepted', 'Preparing', 'Ready', 'Served', 'Completed', 'Cancelled']
     if new_status not in valid_statuses:
-        return jsonify({"message": f"Invalid status value. Must be one of: {valid_statuses}"}), 400
+        return jsonify({"success": False, "message": f"Invalid status value. Must be one of: {valid_statuses}"}), 400
         
-    order = OrderRepository.get_by_id(order_id)
-    if not order:
-        return jsonify({"success": False, "message": "Order not found"}), 404
-        
+    from extensions import db
+    from models.order import Order
+    
     try:
-        updated = OrderRepository.update(order_id, status=new_status)
-        audit_logger.info(f"[UPDATE] Endpoint: /api/orders/{order_id}/status, Record ID: {order_id}, Old Status: {order.status}, New Status: {new_status}, DB commit success: True")
+        # Row locking for safety against concurrent updates
+        order = db.session.query(Order).with_for_update().get(order_id)
+        if not order:
+            db.session.rollback()
+            return jsonify({"success": False, "message": "Order not found"}), 404
+            
+        # Optimistic locking
+        client_version = data.get('version')
+        if client_version is not None:
+            if int(client_version) != order.version:
+                db.session.rollback()
+                return jsonify({
+                    "success": False,
+                    "message": "Record has been modified by another user.",
+                    "action": "refresh_required"
+                }), 409
+            order.version = order.version + 1
+
+        # State machine transition validation
+        allowed_transitions = {
+            'Pending': ['Accepted', 'Cancelled'],
+            'Accepted': ['Preparing', 'Cancelled'],
+            'Preparing': ['Ready'],
+            'Ready': ['Served'],
+            'Served': ['Completed'],
+            'Completed': [],
+            'Cancelled': []
+        }
+        
+        if new_status not in allowed_transitions.get(order.status, []):
+            db.session.rollback()
+            return jsonify({
+                "success": False,
+                "message": f"Invalid status transition from {order.status} to {new_status}."
+            }), 400
+
+        old_status = order.status
+        order.status = new_status
+        db.session.commit()
+        
+        audit_logger.info(f"[UPDATE] Endpoint: /api/orders/{order_id}/status, Record ID: {order_id}, Old Status: {old_status}, New Status: {new_status}, DB commit success: True")
         return jsonify({
             "success": True,
             "message": f"Order status updated to {new_status} successfully!",
-            "data": updated.to_dict()
+            "data": order.to_dict()
         }), 200
     except Exception as e:
+        db.session.rollback()
         audit_logger.error(f"[UPDATE] Endpoint: /api/orders/{order_id}/status, Record ID: {order_id}, DB commit success: False")
         return jsonify({"success": False, "message": f"Failed to update order status: {e}"}), 500

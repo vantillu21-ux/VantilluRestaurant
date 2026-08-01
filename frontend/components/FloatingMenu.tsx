@@ -37,7 +37,7 @@ export const FloatingMenu: React.FC<FloatingMenuProps> = ({ activeSection, onNav
   return (
     <>
       {/* Mobile Toggle Button */}
-      <div className="fixed top-6 left-6 z-40 lg:hidden">
+      <div className="fixed top-6 left-6 z-[60] lg:hidden">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="bg-brand-brown border border-brand-gold/40 text-brand-gold p-3 rounded-full shadow-lg backdrop-blur-md cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95"
@@ -48,7 +48,7 @@ export const FloatingMenu: React.FC<FloatingMenuProps> = ({ activeSection, onNav
 
       {/* Navigation Container */}
       <nav className={`
-        fixed z-40 transition-all duration-500
+        fixed z-[50] transition-all duration-500
         lg:left-8 lg:top-1/2 lg:-translate-y-1/2 lg:block
         ${isOpen ? 'left-6 top-20 block' : 'left-[-250px] top-20 hidden lg:block'}
       `}>
@@ -56,7 +56,7 @@ export const FloatingMenu: React.FC<FloatingMenuProps> = ({ activeSection, onNav
           initial={{ x: -100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
-          className="bg-[#2E1A1C]/85 border-2 border-brand-gold/30 rounded-2xl md:rounded-3xl p-3 md:p-4 flex flex-col gap-2 md:gap-3 shadow-2xl backdrop-blur-md max-w-[200px] lg:max-w-none"
+          className="bg-[#2E1A1C]/85 border-2 border-brand-gold/30 rounded-2xl md:rounded-3xl p-3 md:p-4 flex flex-col gap-2 md:gap-3 shadow-2xl backdrop-blur-md max-w-[200px] lg:max-w-none max-h-[80vh] overflow-y-auto overflow-x-hidden custom-scrollbar"
         >
           {/* Menu Title (Left aligned) */}
           <div className="hidden lg:block text-center mb-2">
@@ -113,7 +113,7 @@ export const FloatingMenu: React.FC<FloatingMenuProps> = ({ activeSection, onNav
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-[45] bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
     </>

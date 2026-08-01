@@ -7,5 +7,7 @@ from .payment import Payment
 from .customer import Customer
 from .password_reset import PasswordResetToken
 from .customer_otp import CustomerEmailOTP
+from .menu_item import MenuItem
+from .audit_log import AuditLog
 
-__all__ = ['db', 'Admin', 'Order', 'Reservation', 'PartyOrder', 'Payment', 'Customer', 'PasswordResetToken', 'CustomerEmailOTP']
+__all__ = ['db', 'Admin', 'Order', 'Reservation', 'PartyOrder', 'Payment', 'Customer', 'PasswordResetToken', 'CustomerEmailOTP', 'MenuItem', 'AuditLog']

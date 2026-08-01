@@ -36,7 +36,7 @@ export default function PartyPage() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/party-orders`, {
+      const response = await fetch(`${API_URL}/api/v1/party-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

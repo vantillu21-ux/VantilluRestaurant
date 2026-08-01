@@ -151,12 +151,6 @@ def create_app(config_name=None):
     limiter.init_app(app)
     
     with app.app_context():
-        from flask_migrate import upgrade
-        try:
-            upgrade()
-        except Exception as e:
-            logger.error(f"Migration upgrade failed on startup: {e}")
-            
         # Startup Sync Validation
         try:
             from models.admin import Admin

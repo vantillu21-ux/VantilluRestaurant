@@ -349,7 +349,22 @@ def update_user(user_id):
                     "details": str(sb_err)
                 }), 500
                 
+        client_version = raw_json.get('version')
+        if client_version is not None:
+            if int(client_version) != user.version:
+                from extensions import db
+                db.session.rollback()
+                return jsonify({
+                    "success": False,
+                    "message": "Record has been modified by another user.",
+                    "action": "refresh_required"
+                }), 409
+            updates['version'] = user.version + 1
+                
         updated_user = AdminRepository.update(user_id, **updates)
+        
+        from extensions import db
+        db.session.commit()
         audit_logger.info(f"Staff user ID {user_id} updated by {request.current_user.username if hasattr(request, 'current_user') else 'system'}: {updates}")
         return jsonify({
             "success": True,
@@ -357,6 +372,9 @@ def update_user(user_id):
             "data": {"user": updated_user.to_dict()}
         }), 200
     except Exception as e:
+        from extensions import db
+        db.session.rollback()
+        import traceback
         tb = traceback.format_exc()
         audit_logger.error(f"[UPDATE_USER] Exception: {str(e)}\n{tb}")
         return jsonify({
@@ -391,6 +409,9 @@ def delete_user(user_id):
             supabase_admin.auth.admin.delete_user(user.supabase_user_id)
             
         AdminRepository.delete(user_id)
+        from extensions import db
+        db.session.commit()
+        
         audit_logger.info(f"[DELETE_USER] Staff user ID {user_id} ({user.username}) deleted by {request.current_user.username if hasattr(request, 'current_user') else 'system'}")
         return jsonify({
             "success": True,
@@ -398,6 +419,9 @@ def delete_user(user_id):
             "data": {}
         }), 200
     except Exception as e:
+        from extensions import db
+        db.session.rollback()
+        import traceback
         tb = traceback.format_exc()
         audit_logger.error(f"[DELETE_USER] Exception: {str(e)}\n{tb}")
         return jsonify({
@@ -597,6 +621,7 @@ def reset_password():
         
         # Mark token as used to prevent reuse
         token.used = True
+        from extensions import db
         db.session.commit()
         
         return jsonify({
