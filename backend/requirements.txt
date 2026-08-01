@@ -17,4 +17,5 @@ python-dotenv==1.0.1
 requests==2.32.3
 PyJWT==2.8.0
 
-bcrypt==4.2.0sib-api-v3-sdk
+bcrypt==4.2.0
+sib-api-v3-sdk
