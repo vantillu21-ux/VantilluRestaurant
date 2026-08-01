@@ -20,6 +20,4 @@ export interface MenuItem {
   isChefSpecial?: boolean;
 }
 
-import items from './menu.json';
-
-export const menuItems = items as MenuItem[];
+export const menuItems: MenuItem[] = [];

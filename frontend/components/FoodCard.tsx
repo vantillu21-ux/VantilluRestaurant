@@ -60,18 +60,17 @@ export const FoodCard: React.FC<FoodCardProps> = ({
   const [showNotesField, setShowNotesField] = useState(false);
 
   // Portion State selection
-  const [portion, setPortion] = useState<'Half' | 'Full' | 'Single' | 'Standard' | 'Family' | 'Jumbo'>(() => {
-    if (portionType === 'four-sizes') return 'Single';
-    if (portionType === 'half-full') return 'Half';
-    if (portionType === 'single-full') return 'Single';
+  const [portion, setPortion] = useState<'Small' | 'Full' | 'Standard' | 'Family' | 'Jumbo'>(() => {
+    if (portionType === 'four-sizes') return 'Small';
+    if (portionType === 'half-full') return 'Small';
+    if (portionType === 'single-full') return 'Small';
     return 'Standard';
   });
 
   // Dynamic price calculation
   const getActivePrice = () => {
-    if (portion === 'Half') return halfPrice || 0;
+    if (portion === 'Small') return singlePrice || halfPrice || 0;
     if (portion === 'Full') return fullPrice || 0;
-    if (portion === 'Single') return singlePrice || 0;
     if (portion === 'Family') return familyPrice || 0;
     if (portion === 'Jumbo') return jumboPrice || 0;
     return price || 0;
@@ -221,11 +220,11 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => setPortion('Single')}
+                    onClick={() => setPortion('Small')}
                     className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] font-bold rounded-lg cursor-pointer transition-all ${
-                      portion === 'Single' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
+                      portion === 'Small' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
-                    title={`Single Serving (₹${singlePrice})`}
+                    title={`Small Serving (₹${singlePrice})`}
                   >
                     Small (₹{singlePrice})
                   </button>
@@ -265,12 +264,12 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => setPortion('Half')}
+                    onClick={() => setPortion('Small')}
                     className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
-                      portion === 'Half' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
+                      portion === 'Small' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                   >
-                    Half (₹{halfPrice})
+                    Small (₹{halfPrice})
                   </button>
                   <button
                     type="button"
@@ -287,12 +286,12 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => setPortion('Single')}
+                    onClick={() => setPortion('Small')}
                     className={`py-2 min-h-[44px] text-[10px] sm:text-[9px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
-                      portion === 'Single' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
+                      portion === 'Small' ? 'bg-brand-gold text-brand-brown' : 'text-white/50 hover:text-white'
                     }`}
                   >
-                    Single (₹{singlePrice})
+                    Small (₹{singlePrice})
                   </button>
                   <button
                     type="button"
