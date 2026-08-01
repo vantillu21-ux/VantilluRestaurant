@@ -12,12 +12,14 @@ from models.menu_item import MenuItem
 def seed_menu():
     app = create_app()
     with app.app_context():
-        # Step 2: Check row count
-        count = MenuItem.query.count()
-        print(f"Current menu_items count: {count}")
-        
-        if count > 0:
-            print("Menu table is not empty. Exiting safely.")
+        # Clean the table
+        try:
+            db.session.query(MenuItem).delete()
+            db.session.commit()
+            print("Successfully deleted existing menu items.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error clearing menu items: {e}")
             return
 
         # Load menu.json
@@ -29,32 +31,32 @@ def seed_menu():
         with open(menu_json_path, 'r', encoding='utf-8') as f:
             menu_data = json.load(f)
             
-        # Step 4: Import data
         print(f"Found {len(menu_data)} items in menu.json. Starting import...")
         
         items_imported = 0
         for item in menu_data:
-            # Map JSON fields to MenuItem model fields
-            price_small = float(item.get('price')) if item.get('price') else None
-            price_full = None
-            
-            if item.get('portionType') == 'half-full':
-                price_small = float(item.get('halfPrice')) if item.get('halfPrice') else None
-                price_full = float(item.get('fullPrice')) if item.get('fullPrice') else None
-            elif item.get('portionType') == 'single-full':
-                price_small = float(item.get('singlePrice')) if item.get('singlePrice') else None
-                price_full = float(item.get('fullPrice')) if item.get('fullPrice') else None
-            
             menu_item = MenuItem(
-                category=item.get('category', 'Uncategorized'),
+                id=item.get('id'),
                 name=item.get('name', 'Unknown'),
+                category=item.get('category', 'Uncategorized'),
+                cuisine=item.get('cuisine'),
                 description=item.get('description', ''),
                 image_url=item.get('image', ''),
-                price_small=price_small,
-                price_full=price_full,
-                is_available=True,
+                is_veg=item.get('isVeg', True),
                 spice_level=item.get('spiceLevel', 'Mild'),
-                display_order=item.get('id', 0)  # Preserve old sorting
+                rating=item.get('rating', 4.5),
+                prep_time=item.get('prepTime'),
+                portion_type=item.get('portionType'),
+                price=item.get('price'),
+                half_price=item.get('halfPrice'),
+                full_price=item.get('fullPrice'),
+                single_price=item.get('singlePrice'),
+                family_price=item.get('familyPrice'),
+                jumbo_price=item.get('jumboPrice'),
+                is_best_seller=item.get('isBestSeller', False),
+                is_chef_special=item.get('isChefSpecial', False),
+                is_available=True,
+                display_order=item.get('id', 0)
             )
             
             db.session.add(menu_item)
@@ -62,9 +64,7 @@ def seed_menu():
             
         try:
             db.session.commit()
-            print(f"Successfully imported {items_imported} menu items.")
-            
-            # Verify row count afterwards
+            print(f"Successfully imported {items_imported} menu items with full schema.")
             final_count = MenuItem.query.count()
             print(f"Final menu_items row count: {final_count}")
         except Exception as e:
