@@ -169,9 +169,22 @@ def create_user():
             
         username = data['username']
         email = data['email']
-        password = data['password']
+        password = data.get('password')
         role = data.get('role', 'Admin')
         permissions = data.get('permissions', 'all')
+        
+        audit_logger.info(f"[CREATE_USER] Received password? {'YES' if password else 'NO'}")
+        
+        if not password:
+            return jsonify({
+                "success": False,
+                "message": "Validation Error",
+                "details": "Password is required"
+            }), 400
+            
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        audit_logger.info(f"[CREATE_USER] Password hash generated? YES")
+        audit_logger.info(f"[CREATE_USER] Hash length: {len(password_hash)}")
         
         existing_username = AdminRepository.get_by_username(username)
         
@@ -209,7 +222,9 @@ def create_user():
                 "details": str(sb_err)
             }), 500
             
+            
         supabase_user_id = getattr(auth_user, 'user', auth_user).id
+        audit_logger.info(f"[CREATE_USER] Supabase user created")
         audit_logger.info(f"[CREATE_USER] 7. Extracted user.id: {supabase_user_id}")
         
         audit_logger.info("[CREATE_USER] 8. Database INSERT into admins starting")
@@ -222,17 +237,23 @@ def create_user():
             "email": email,
             "role": role,
             "permissions": permissions,
-            "password_hash": None,
+            "password_hash": password_hash,
             "supabase_user_id": supabase_user_id
         }
-        audit_logger.info(f"[CREATE_USER] INSERT payload: {insert_payload}")
+        # Copy payload for logging without exposing the actual hash
+        log_payload = insert_payload.copy()
+        log_payload['password_hash'] = '***'
+        audit_logger.info(f"[CREATE_USER] Database insert payload: {log_payload}")
+        
+        if insert_payload["password_hash"] is None:
+            raise Exception("password_hash is None before commit!")
         
         new_user = Admin(**insert_payload)
         db.session.add(new_user)
         
         try:
             db.session.commit()
-            audit_logger.info("[CREATE_USER] 9. Commit: successful")
+            audit_logger.info("[CREATE_USER] Commit success")
         except Exception as db_err:
             db.session.rollback()
             audit_logger.error("[CREATE_USER] 10. Rollback triggered due to DB error")
