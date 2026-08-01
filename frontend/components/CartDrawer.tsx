@@ -286,7 +286,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
 
       const data = await response.json();
       if (response.ok) {
-        setOrderConfirmed(data.order);
+        setOrderConfirmed(data.data);
         clearCart();
         // Clear customer inputs
         setCustomerName('');
@@ -353,7 +353,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
 
       const data = await response.json();
       if (response.ok) {
-        setOrderConfirmed(data.order);
+        setOrderConfirmed(data.data);
         setShowPhonePeModal(false);
         setUtrInput('');
         clearCart();
@@ -716,7 +716,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                     {/* Delivery Address OR Table No based on service mode */}
                     {deliveryType === 'Delivery' ? (
                       <div className="space-y-1.5">
-                        <label className="text-[10px] text-white/50 uppercase">Delivery Address</label>
+                        <label className="text-[10px] text-white/50 uppercase">Delivery Address *</label>
                         <div className="relative">
                           <MapPin size={13} className="absolute left-3 top-3 text-white/40" />
                           <textarea
