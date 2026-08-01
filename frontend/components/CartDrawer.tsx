@@ -252,6 +252,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
     const orderPayload = {
       customer_name: customerName,
       phone: customerPhone,
+      email: customerEmail,
       address: deliveryType === 'Delivery' ? customerAddress : '',
       items: cart.map(item => ({
         id: item.id,
