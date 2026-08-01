@@ -7,6 +7,10 @@ from services.auth_service import SupabaseAuthService
 from middleware.auth import admin_required, permission_required
 from schemas.auth import validate_login_payload, validate_staff_payload
 from utils.logger import logger, audit_logger
+import bcrypt
+import datetime
+from models.password_reset import PasswordResetToken
+from services.email_service import EmailService
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -32,17 +36,24 @@ def login():
         
     except Exception as e:
         # Fallback master validation check for local offline tests/debugging
-        if password == 'vantillu123' and username == 'admin':
-            admin = AdminRepository.get_by_username(username)
-            if admin:
-                audit_logger.info("Local authentication bypass for primary admin account.")
-                return jsonify({
-                    'token': 'vantillu-master-session-token',
-                    'username': username,
-                    'role': admin.role,
-                    'permissions': admin.permissions,
-                    'message': 'Login successful'
-                }), 200
+        admin = AdminRepository.get_by_username(username)
+        
+        is_valid_fallback = False
+        if admin:
+            if admin.password_hash:
+                is_valid_fallback = bcrypt.checkpw(password.encode('utf-8'), admin.password_hash.encode('utf-8'))
+            elif password == 'vantillu123' and username == 'admin':
+                is_valid_fallback = True
+
+        if is_valid_fallback:
+            audit_logger.info("Local authentication bypass successful.")
+            return jsonify({
+                'token': 'vantillu-master-session-token',
+                'username': username,
+                'role': admin.role,
+                'permissions': admin.permissions,
+                'message': 'Login successful'
+            }), 200
         return jsonify({"message": f"Login failed: {e}"}), 401
 
     admin = AdminRepository.get_by_username(username)
@@ -145,25 +156,108 @@ def test_connection():
         "message": "Vantillu Backend is running!"
     }), 200
 
+@auth_bp.route('/admin/forgot-password', methods=['POST'])
+@limiter.limit("5/minute")
+def forgot_password():
+    """Initiates password reset by sending an OTP."""
+    data = request.get_json()
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({"message": "Username is required"}), 400
+        
+    admin = AdminRepository.get_by_username(username)
+    if not admin:
+        # Return success to prevent user enumeration
+        return jsonify({"message": "If the user exists, an OTP has been sent."}), 200
+        
+    otp = str(random.randint(100000, 999999))
+    otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+    
+    token = PasswordResetToken(
+        admin_id=admin.id,
+        otp_hash=otp_hash,
+        expires_at=expires_at
+    )
+    db.session.add(token)
+    db.session.commit()
+    
+    # Send email
+    recipient = username if '@' in username else 'vantillu21@gmail.com'
+    if recipient == 'admin':
+        recipient = 'vantillu21@gmail.com'
+
+    EmailService.send_otp_email(recipient, otp)
+    
+    audit_logger.info(f"Password reset OTP generated for: {username}")
+    return jsonify({"message": "If the user exists, an OTP has been sent."}), 200
+
+@auth_bp.route('/admin/verify-otp', methods=['POST'])
+@limiter.limit("10/minute")
+def verify_otp():
+    """Verifies the provided OTP."""
+    data = request.get_json()
+    username = data.get('username')
+    otp = data.get('otp')
+    
+    if not username or not otp:
+        return jsonify({"message": "Username and OTP are required"}), 400
+        
+    admin = AdminRepository.get_by_username(username)
+    if not admin:
+        return jsonify({"message": "Invalid OTP"}), 400
+        
+    token = PasswordResetToken.query.filter_by(admin_id=admin.id, used=False).order_by(PasswordResetToken.created_at.desc()).first()
+    
+    if not token or token.attempts >= 5:
+        return jsonify({"message": "Invalid or expired OTP"}), 400
+        
+    if token.expires_at < datetime.datetime.utcnow():
+        return jsonify({"message": "OTP expired"}), 400
+        
+    if bcrypt.checkpw(otp.encode('utf-8'), token.otp_hash.encode('utf-8')):
+        return jsonify({"message": "OTP verified successfully"}), 200
+    else:
+        token.attempts += 1
+        db.session.commit()
+        return jsonify({"message": "Invalid OTP"}), 400
+
 @auth_bp.route('/admin/reset-password', methods=['POST'])
-@limiter.limit("20/minute")
+@limiter.limit("5/minute")
 def reset_password():
     """Resets an admin's password."""
     data = request.get_json()
     username = data.get('username')
+    otp = data.get('otp')
     new_password = data.get('newPassword')
     
-    if not username or not new_password:
-        return jsonify({"message": "Username and newPassword are required"}), 400
+    if not username or not otp or not new_password:
+        return jsonify({"message": "Username, OTP, and newPassword are required"}), 400
         
     admin = AdminRepository.get_by_username(username)
     if not admin:
-        return jsonify({"message": "Admin user not found"}), 404
+        return jsonify({"message": "User not found"}), 404
+        
+    token = PasswordResetToken.query.filter_by(admin_id=admin.id, used=False).order_by(PasswordResetToken.created_at.desc()).first()
+    
+    if not token or token.attempts >= 5 or token.expires_at < datetime.datetime.utcnow():
+        return jsonify({"message": "Invalid or expired OTP"}), 400
+        
+    if not bcrypt.checkpw(otp.encode('utf-8'), token.otp_hash.encode('utf-8')):
+        token.attempts += 1
+        db.session.commit()
+        return jsonify({"message": "Invalid OTP"}), 400
         
     try:
-        # In a real app, you would reset it on Supabase Auth.
-        # For now, we simulate a successful reset.
-        audit_logger.info(f"Password reset initiated for user: {username}")
-        return jsonify({"message": "Password reset successfully"}), 200
+        # Hash new password
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        AdminRepository.update(admin.id, password_hash=password_hash)
+        
+        token.used = True
+        db.session.commit()
+        
+        audit_logger.info(f"Password reset successful for user: {username}")
+        return jsonify({"message": "Password updated successfully."}), 200
     except Exception as e:
         return jsonify({"message": f"Failed to reset password: {str(e)}"}), 500

@@ -90,6 +90,8 @@ export const AdminDashboard: React.FC = () => {
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [resetSuccessMsg, setResetSuccessMsg] = useState('');
+  const [resetStep, setResetStep] = useState(1);
+  const [resetOtp, setResetOtp] = useState('');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -143,6 +145,50 @@ export const AdminDashboard: React.FC = () => {
     setIsLoggedIn(false);
   };
 
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setResetSuccessMsg('');
+    try {
+      const res = await fetch(`${API_URL}/api/admin/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: resetUsername }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResetSuccessMsg(data.message);
+        setResetStep(2);
+      } else {
+        setErrorMsg(data.message || 'Failed to send OTP');
+      }
+    } catch (err) {
+      setErrorMsg('Could not connect to server.');
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setResetSuccessMsg('');
+    try {
+      const res = await fetch(`${API_URL}/api/admin/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: resetUsername, otp: resetOtp }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResetSuccessMsg(data.message);
+        setResetStep(3);
+      } else {
+        setErrorMsg(data.message || 'Invalid OTP');
+      }
+    } catch (err) {
+      setErrorMsg('Could not connect to server.');
+    }
+  };
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -157,24 +203,27 @@ export const AdminDashboard: React.FC = () => {
       const res = await fetch(`${API_URL}/api/admin/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: resetUsername, new_password: resetNewPassword }),
+        body: JSON.stringify({ username: resetUsername, otp: resetOtp, newPassword: resetNewPassword }),
       });
+      
       const data = await res.json();
       if (res.ok) {
-        setResetSuccessMsg(data.message || 'Password reset successful!');
-        setResetUsername('');
-        setResetNewPassword('');
-        setResetConfirmPassword('');
+        setResetSuccessMsg('Password updated successfully! Redirecting...');
         setTimeout(() => {
           setIsResetMode(false);
+          setResetStep(1);
+          setResetUsername('');
+          setResetOtp('');
+          setResetNewPassword('');
+          setResetConfirmPassword('');
           setResetSuccessMsg('');
         }, 2000);
       } else {
-        setErrorMsg(data.message || 'Failed to reset password');
+        setErrorMsg(data.message || 'Password reset failed');
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Error connecting to authentication server.');
+      setErrorMsg('Could not connect to authentication server.');
     }
   };
 
@@ -574,69 +623,121 @@ export const AdminDashboard: React.FC = () => {
                 Reset Staff Password
               </p>
 
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                <div>
-                  <label className="text-[10px] text-white/50 uppercase tracking-widest">Username</label>
-                  <input
-                    type="text"
-                    required
-                    value={resetUsername}
-                    onChange={(e) => setResetUsername(e.target.value)}
-                    placeholder="Enter username"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-white/50 uppercase tracking-widest">New Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={resetNewPassword}
-                    onChange={(e) => setResetNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-white/50 uppercase tracking-widest">Confirm Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={resetConfirmPassword}
-                    onChange={(e) => setResetConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
-                  />
-                </div>
-                
-                {errorMsg && (
-                  <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
-                )}
-                {resetSuccessMsg && (
-                  <p className="text-xs text-green-400 text-center font-semibold">{resetSuccessMsg}</p>
-                )}
+              {resetStep === 1 && (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] text-white/50 uppercase tracking-widest">Username / Email</label>
+                    <input
+                      type="text"
+                      required
+                      value={resetUsername}
+                      onChange={(e) => setResetUsername(e.target.value)}
+                      placeholder="Enter username"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
+                    />
+                  </div>
+                  
+                  {errorMsg && (
+                    <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
+                  )}
+                  {resetSuccessMsg && (
+                    <p className="text-xs text-green-400 text-center font-semibold">{resetSuccessMsg}</p>
+                  )}
 
-                <button
-                  type="submit"
-                  className="w-full bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-semibold py-3 rounded-xl cursor-pointer transition-colors shadow-lg uppercase text-xs tracking-wider"
-                >
-                  Reset Password
-                </button>
-
-                <div className="text-center pt-2">
                   <button
-                    type="button"
-                    onClick={() => {
-                      setIsResetMode(false);
-                      setErrorMsg('');
-                      setResetSuccessMsg('');
-                    }}
-                    className="text-xs text-brand-gold/80 hover:text-brand-gold hover:underline cursor-pointer transition-colors"
+                    type="submit"
+                    className="w-full bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-semibold py-3 rounded-xl cursor-pointer transition-colors shadow-lg uppercase text-xs tracking-wider"
                   >
-                    Back to Login
+                    Send OTP
                   </button>
-                </div>
-              </form>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsResetMode(false);
+                        setErrorMsg('');
+                        setResetSuccessMsg('');
+                      }}
+                      className="text-xs text-brand-gold/80 hover:text-brand-gold hover:underline cursor-pointer transition-colors"
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {resetStep === 2 && (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] text-white/50 uppercase tracking-widest">Enter 6-Digit OTP</label>
+                    <input
+                      type="text"
+                      required
+                      value={resetOtp}
+                      onChange={(e) => setResetOtp(e.target.value)}
+                      placeholder="e.g. 483927"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white text-center tracking-widest"
+                      maxLength={6}
+                    />
+                  </div>
+                  
+                  {errorMsg && (
+                    <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
+                  )}
+                  {resetSuccessMsg && (
+                    <p className="text-xs text-green-400 text-center font-semibold">{resetSuccessMsg}</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-semibold py-3 rounded-xl cursor-pointer transition-colors shadow-lg uppercase text-xs tracking-wider"
+                  >
+                    Verify OTP
+                  </button>
+                </form>
+              )}
+
+              {resetStep === 3 && (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] text-white/50 uppercase tracking-widest">New Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-white/50 uppercase tracking-widest">Confirm Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={resetConfirmPassword}
+                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-brand-gold outline-none mt-1 text-white"
+                    />
+                  </div>
+                  
+                  {errorMsg && (
+                    <p className="text-xs text-red-400 text-center font-semibold">{errorMsg}</p>
+                  )}
+                  {resetSuccessMsg && (
+                    <p className="text-xs text-green-400 text-center font-semibold">{resetSuccessMsg}</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-semibold py-3 rounded-xl cursor-pointer transition-colors shadow-lg uppercase text-xs tracking-wider"
+                  >
+                    Reset Password
+                  </button>
+                </form>
+              )}
             </>
           ) : (
             <>
