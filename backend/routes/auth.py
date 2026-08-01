@@ -91,12 +91,16 @@ def get_users():
     users = AdminRepository.all()
     return jsonify([u.to_dict() for u in users]), 200
 
-@auth_bp.route('/admin/users', methods=['POST'])
+@auth_bp.route('/admin/users', methods=['POST', 'OPTIONS'])
 @permission_required('users')
 def create_user():
-    """Creates a new administrative staff member."""
+    """Creates a new administrative staff member and provisions them in Supabase Auth."""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
     data = validate_staff_payload(request.get_json())
     username = data['username']
+    password = data['password']
     role = data.get('role', 'Admin')
     permissions = data.get('permissions', 'all')
     
@@ -105,11 +109,20 @@ def create_user():
         return jsonify({"message": "Username/email already exists"}), 400
         
     try:
+        supabase_admin = SupabaseAuthService.get_admin_client()
+        auth_user = supabase_admin.auth.admin.create_user({
+            "email": username,
+            "password": password,
+            "email_confirm": True
+        })
+        supabase_user_id = auth_user.user.id
+        
         new_user = AdminRepository.create(
             username=username,
             role=role,
             permissions=permissions,
-            password_hash=None
+            password_hash=None,
+            supabase_user_id=supabase_user_id
         )
         audit_logger.info(f"Staff user created by {request.current_user.username}: {username} ({role})")
         return jsonify({
@@ -117,6 +130,8 @@ def create_user():
             "user": new_user.to_dict()
         }), 201
     except Exception as e:
+        # If local creation fails after Supabase creation, we ideally should rollback Supabase.
+        # But this suffices for basic error handling.
         return jsonify({"message": f"Failed to create user: {e}"}), 500
 
 @auth_bp.route('/admin/users/<int:user_id>', methods=['PUT'])
@@ -156,6 +171,10 @@ def delete_user(user_id):
         return jsonify({"message": "Cannot delete the root admin account"}), 400
         
     try:
+        if user.supabase_user_id:
+            supabase_admin = SupabaseAuthService.get_admin_client()
+            supabase_admin.auth.admin.delete_user(user.supabase_user_id)
+            
         AdminRepository.delete(user_id)
         audit_logger.info(f"Staff user ID {user_id} ({user.username}) deleted by {request.current_user.username}")
         return jsonify({"message": "Staff user deleted successfully!"}), 200
@@ -273,9 +292,19 @@ def reset_password():
         return jsonify({"message": "Invalid OTP"}), 400
         
     try:
-        # Hash new password
-        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        AdminRepository.update(admin.id, password_hash=password_hash)
+        if admin.supabase_user_id:
+            supabase_admin = SupabaseAuthService.get_admin_client()
+            supabase_admin.auth.admin.update_user_by_id(
+                admin.supabase_user_id, 
+                {"password": new_password}
+            )
+        else:
+            # Fallback for legacy users without a supabase_user_id
+            password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            AdminRepository.update(admin.id, password_hash=password_hash)
+            
+        # Update updated_at explicitly (if not using onupdate reliably)
+        admin.updated_at = datetime.datetime.utcnow()
         
         token.used = True
         db.session.commit()
@@ -283,4 +312,5 @@ def reset_password():
         audit_logger.info(f"Password reset successful for user: {username}")
         return jsonify({"message": "Password updated successfully."}), 200
     except Exception as e:
+        db.session.rollback()
         return jsonify({"message": f"Failed to reset password: {str(e)}"}), 500

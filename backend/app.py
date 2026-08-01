@@ -156,6 +156,16 @@ def create_app(config_name=None):
             upgrade()
         except Exception as e:
             logger.error(f"Migration upgrade failed on startup: {e}")
+            
+        # Startup Sync Validation
+        try:
+            from models.admin import Admin
+            admins = Admin.query.all()
+            for admin in admins:
+                if not admin.supabase_user_id:
+                    logger.warning(f"SYNC WARNING: Missing supabase_user_id for admin: {admin.username}")
+        except Exception as e:
+            logger.error(f"Startup Sync validation failed: {e}")
     
     # Initialize Security Headers (Flask-Talisman)
     # Set force_https=False in development to prevent local browser SSL complaints

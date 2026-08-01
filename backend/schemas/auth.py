@@ -16,4 +16,6 @@ def validate_staff_payload(data):
         raise ValidationException("Request payload is empty.")
     if 'username' not in data or not data['username']:
         raise ValidationException("Username/email is required.")
+    if 'password' not in data or not data['password']:
+        raise ValidationException("Password is required.")
     return data

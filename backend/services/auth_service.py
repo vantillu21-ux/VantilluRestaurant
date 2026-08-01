@@ -19,6 +19,16 @@ class SupabaseAuthService:
         return cls._client
 
     @classmethod
+    def get_admin_client(cls) -> Client:
+        """Instantiates a Supabase client using the Service Role Key for admin operations."""
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        if not url or not key:
+            logger.error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing from environment.")
+            raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured.")
+        return create_client(url, key)
+
+    @classmethod
     def verify_token(cls, token):
         """Verifies the access token against Supabase GoTrue Auth service.
         
