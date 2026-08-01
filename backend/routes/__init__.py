@@ -18,6 +18,7 @@ def register_blueprints(app):
     app.register_blueprint(analytics_bp, url_prefix='/api/v1/analytics')
     app.register_blueprint(menu_bp, url_prefix='/api/v1')
     app.register_blueprint(settings_bp, url_prefix='/api/v1/settings')
+    app.register_blueprint(customer_verification_bp, url_prefix='/api/v1/customer')
     
     # Register legacy routes (for backwards compatibility during frontend migration)
     app.register_blueprint(auth_bp, url_prefix='/api', name='auth_legacy')
@@ -28,6 +29,4 @@ def register_blueprints(app):
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics', name='analytics_legacy')
     app.register_blueprint(menu_bp, url_prefix='/api', name='menu_legacy')
     app.register_blueprint(settings_bp, url_prefix='/api/settings', name='settings_legacy')
-    
-    # Customer verification
-    app.register_blueprint(customer_verification_bp)
+    app.register_blueprint(customer_verification_bp, url_prefix='/api/customer', name='customer_legacy')

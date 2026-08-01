@@ -8,7 +8,7 @@ from models.customer import Customer
 from services.email_service import EmailService
 from utils.logger import logger
 
-customer_verification_bp = Blueprint('customer_verification', __name__, url_prefix='/api/customer')
+customer_verification_bp = Blueprint('customer_verification', __name__)
 
 def get_utc_now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
