@@ -101,18 +101,41 @@ def create_user():
     import os
     import traceback
     
-    audit_logger.info(f"[CREATE_USER] 1. Incoming request payload: {request.get_json()}")
-    data = validate_staff_payload(request.get_json())
-    username = data['username']
-    password = data['password']
-    role = data.get('role', 'Admin')
-    permissions = data.get('permissions', 'all')
-    
-    existing = AdminRepository.get_by_username(username)
-    if existing:
-        return jsonify({"message": "Username/email already exists"}), 400
-        
     try:
+        raw_json = request.get_json()
+        audit_logger.info(f"[CREATE_USER] 1. Raw request JSON: {raw_json}")
+        
+        # Validation Phase
+        from schemas.auth import validate_staff_payload
+        from utils.exceptions import ValidationException
+        try:
+            data = validate_staff_payload(raw_json)
+            audit_logger.info(f"[CREATE_USER] Parsed JSON: {data}")
+            audit_logger.info(f"[CREATE_USER] Validation result: Success")
+        except ValidationException as ve:
+            audit_logger.error(f"[CREATE_USER] Validation result: Failed - {str(ve)}")
+            # In a real validation schema we'd extract missing/invalid fields, here we log the message
+            audit_logger.error(f"[CREATE_USER] Invalid/Missing fields issue: {str(ve)}")
+            return jsonify({
+                "success": False,
+                "message": "Validation Error",
+                "details": str(ve)
+            }), 400
+            
+        username = data['username']
+        password = data['password']
+        role = data.get('role', 'Admin')
+        permissions = data.get('permissions', 'all')
+        
+        existing = AdminRepository.get_by_username(username)
+        if existing:
+            audit_logger.warning(f"[CREATE_USER] Duplicate username/email: {username}")
+            return jsonify({
+                "success": False,
+                "message": "Duplicate Account",
+                "details": "Username/email already exists"
+            }), 409
+            
         audit_logger.info("[CREATE_USER] 2. Supabase client initialization starting")
         
         url_present = bool(os.environ.get("SUPABASE_URL"))
@@ -122,7 +145,7 @@ def create_user():
         
         supabase_admin = SupabaseAuthService.get_admin_client()
         
-        audit_logger.info(f"[CREATE_USER] 5. Call to supabase.auth.admin.create_user() for {username}")
+        audit_logger.info(f"[CREATE_USER] 5. Request to create_user() for {username}")
         
         try:
             auth_user = supabase_admin.auth.admin.create_user({
@@ -130,52 +153,62 @@ def create_user():
                 "password": password,
                 "email_confirm": True
             })
+            audit_logger.info(f"[CREATE_USER] 6. Full Supabase response: {auth_user}")
         except Exception as sb_err:
-            audit_logger.error(f"[CREATE_USER] Supabase error: {str(sb_err)}")
+            audit_logger.error(f"[CREATE_USER] Any API exception: {str(sb_err)}")
             return jsonify({
                 "success": False,
-                "error": str(sb_err)
-            }), 400
+                "message": "Supabase API Error",
+                "details": str(sb_err)
+            }), 500
             
-        audit_logger.info(f"[CREATE_USER] 6. Full Supabase response: {auth_user}")
-        
         supabase_user_id = getattr(auth_user, 'user', auth_user).id
         audit_logger.info(f"[CREATE_USER] 7. Extracted user.id: {supabase_user_id}")
         
         audit_logger.info("[CREATE_USER] 8. Database INSERT into admins starting")
         
-        # Doing manual insert to log commit/rollback
         from models.admin import Admin
         from extensions import db
-        new_user = Admin(
-            username=username,
-            role=role,
-            permissions=permissions,
-            password_hash=None,
-            supabase_user_id=supabase_user_id
-        )
+        
+        insert_payload = {
+            "username": username,
+            "role": role,
+            "permissions": permissions,
+            "password_hash": None,
+            "supabase_user_id": supabase_user_id
+        }
+        audit_logger.info(f"[CREATE_USER] INSERT payload: {insert_payload}")
+        
+        new_user = Admin(**insert_payload)
         db.session.add(new_user)
         
         try:
             db.session.commit()
-            audit_logger.info("[CREATE_USER] 9. Commit successful")
+            audit_logger.info("[CREATE_USER] 9. Commit: successful")
         except Exception as db_err:
             db.session.rollback()
             audit_logger.error("[CREATE_USER] 10. Rollback triggered due to DB error")
+            audit_logger.error(f"[CREATE_USER] SQLAlchemy exception: {str(db_err)}")
             raise db_err
             
         audit_logger.info(f"Staff user created by {request.current_user.username}: {username} ({role})")
         return jsonify({
+            "success": True,
             "message": "Staff user created successfully!",
             "user": new_user.to_dict()
         }), 201
+        
     except Exception as e:
         tb = traceback.format_exc()
         audit_logger.error(f"[CREATE_USER] 11. Full traceback:\n{tb}")
+        audit_logger.error(f"[CREATE_USER] Exception type: {type(e).__name__}")
+        audit_logger.error(f"[CREATE_USER] Exception message: {str(e)}")
+        # file and line number are in the traceback
+        
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": tb
+            "message": "Unexpected Server Error",
+            "details": str(e)
         }), 500
 
 @auth_bp.route('/admin/users/<int:user_id>', methods=['PUT'])
