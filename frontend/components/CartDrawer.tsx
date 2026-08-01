@@ -36,6 +36,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const [customerAddress, setCustomerAddress] = useState('');
   const [tableNo, setTableNo] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'UPI'>('COD');
+  const [selectedUpiApp, setSelectedUpiApp] = useState<'PHONEPE' | 'GPAY' | 'PAYTM'>('PHONEPE');
   const [deliveryType, setDeliveryType] = useState<'Delivery' | 'DineIn' | 'Takeaway'>('Delivery');
   const [locationChecking, setLocationChecking] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -702,28 +703,56 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                     <p className="text-[10px] text-white/50 uppercase tracking-widest">Amount to Pay</p>
                     <p className="text-3xl font-serif text-brand-gold font-bold">₹{grandTotal}</p>
                     <p className="text-[9px] text-brand-orange uppercase font-bold tracking-wider">
-                      Payee: Meneni Sahithi
+                      Payee: Bharadwaj Rampa
                     </p>
+                  </div>
+
+                  {/* App Selection Tabs */}
+                  <div className="flex gap-2 justify-center mb-6">
+                    <button
+                      onClick={() => setSelectedUpiApp('PHONEPE')}
+                      className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wider transition-colors ${selectedUpiApp === 'PHONEPE' ? 'bg-[#5f259f] text-white' : 'bg-white/10 text-white/50'}`}
+                    >
+                      PhonePe
+                    </button>
+                    <button
+                      onClick={() => setSelectedUpiApp('GPAY')}
+                      className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wider transition-colors ${selectedUpiApp === 'GPAY' ? 'bg-[#1a73e8] text-white' : 'bg-white/10 text-white/50'}`}
+                    >
+                      GPay
+                    </button>
+                    <button
+                      onClick={() => setSelectedUpiApp('PAYTM')}
+                      className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wider transition-colors ${selectedUpiApp === 'PAYTM' ? 'bg-[#002970] text-white' : 'bg-white/10 text-white/50'}`}
+                    >
+                      Paytm
+                    </button>
                   </div>
 
                   {/* QR Code Segment */}
                   <div className="flex flex-col items-center justify-center space-y-4 mb-6">
                     <p className="text-[11px] text-white/70 text-center max-w-[280px] leading-relaxed">
-                      Scan with <strong>PhonePe, GPay, Paytm</strong> or any UPI app. Amount of <strong>₹{grandTotal}</strong> is pre-filled — do not change it.
+                      Scan with <strong>{selectedUpiApp === 'PHONEPE' ? 'PhonePe' : selectedUpiApp === 'GPAY' ? 'Google Pay' : 'Paytm'}</strong>. Amount of <strong>₹{grandTotal}</strong> is pre-filled — do not change it.
                     </p>
 
                     <div className="bg-white p-3 rounded-2xl shadow-lg border-2 border-brand-gold/50">
                       <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=400d12&data=${encodeURIComponent(
-                          `upi://pay?pa=8008508234@ybl&pn=Meneni%20Sahithi&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=${
+                          selectedUpiApp === 'PHONEPE' ? '5f259f' : selectedUpiApp === 'GPAY' ? '1a73e8' : '002970'
+                        }&data=${encodeURIComponent(
+                          selectedUpiApp === 'PHONEPE'
+                            ? `upi://pay?pa=9440828238@ybl&pn=Bharadwaj%20Rampa&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`
+                            : selectedUpiApp === 'GPAY'
+                            ? `upi://pay?pa=bharadwaj804@okhdfcbank&pn=Bharadwaj%20Rampa&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`
+                            : `upi://pay?pa=paytmqr6xneqx@ptys&pn=Bharadwaj%20Rampa&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`
                         )}`}
-                        alt="PhonePe UPI Payment QR Code"
+                        alt={`${selectedUpiApp} QR Code`}
                         className="w-40 h-40 object-contain"
                       />
                     </div>
 
                     <p className="text-[9px] text-white/40 tracking-wider">
-                      UPI ID: 8008508234@ybl
+                      UPI ID: {selectedUpiApp === 'PHONEPE' ? '9440828238@ybl' : selectedUpiApp === 'GPAY' ? 'bharadwaj804@okhdfcbank' : 'paytmqr6xneqx@ptys'}
                     </p>
                   </div>
 
@@ -757,10 +786,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                   <div className="space-y-3 mt-auto">
                     {/* Intent Button for mobile */}
                     <a
-                      href={`upi://pay?pa=8008508234@ybl&pn=Meneni%20Sahithi&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`}
-                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 active:scale-95 text-center text-xs uppercase tracking-wider shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                      href={
+                        selectedUpiApp === 'PHONEPE'
+                          ? `upi://pay?pa=9440828238@ybl&pn=Bharadwaj%20Rampa&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`
+                          : selectedUpiApp === 'GPAY'
+                          ? `upi://pay?pa=bharadwaj804@okhdfcbank&pn=Bharadwaj%20Rampa&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`
+                          : `upi://pay?pa=paytmqr6xneqx@ptys&pn=Bharadwaj%20Rampa&am=${grandTotal}&cu=INR&tn=Vantillu%20Order`
+                      }
+                      className={`w-full text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 active:scale-95 text-center text-xs uppercase tracking-wider ${
+                        selectedUpiApp === 'PHONEPE' ? 'bg-[#5f259f] hover:bg-[#4c1e80]' : selectedUpiApp === 'GPAY' ? 'bg-[#1a73e8] hover:bg-[#1557af]' : 'bg-[#002970] hover:bg-[#001e52]'
+                      }`}
                     >
-                      📲 Open UPI App to Pay
+                      📲 Open {selectedUpiApp === 'PHONEPE' ? 'PhonePe' : selectedUpiApp === 'GPAY' ? 'GPay' : 'Paytm'}
                     </a>
 
                     {/* Confirm Button */}
