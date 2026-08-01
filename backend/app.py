@@ -15,7 +15,6 @@ from config import config_by_name
 from extensions import db, migrate, limiter, talisman
 from database import init_db
 from routes import register_blueprints
-from routes.debug import debug_bp
 from utils.exceptions import register_error_handlers
 from utils.logger import logger
 
@@ -133,9 +132,16 @@ def create_app(config_name=None):
     database_url = sanitize_and_route_db_url(raw_db_url)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     
-    # Initialize CORS
-    client_url = app.config.get('CLIENT_URL', 'http://localhost:3000')
-    CORS(app, resources={r"/api/*": {"origins": client_url}})
+    # Initialize CORS (allow both localhost and Vercel)
+    allowed_origins = [
+        "http://localhost:3000",
+        "https://vantillu-restaurant.vercel.app"
+    ]
+    env_client_url = app.config.get('CLIENT_URL')
+    if env_client_url and env_client_url not in allowed_origins:
+        allowed_origins.append(env_client_url)
+        
+    CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
     
     # Initialize pre-flight checks and Database
     init_db(app)
@@ -151,7 +157,6 @@ def create_app(config_name=None):
     
     # Register blueprints and error handlers
     register_blueprints(app)
-    app.register_blueprint(debug_bp, url_prefix='/api/debug')
     register_error_handlers(app)
     
     # ------------------ HEALTH ENDPOINTS ------------------
