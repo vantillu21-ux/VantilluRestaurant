@@ -45,6 +45,17 @@ def place_order():
         return jsonify({"message": f"Restaurant is closed. Operational hours: {start_str} to {end_str}."}), 400
         
     data = validate_order_payload(request.get_json())
+    
+    # Verify email and phone ownership before accepting order
+    from models.customer import Customer
+    customer = Customer.query.filter_by(phone=data['phone'], email=data.get('email')).first()
+    
+    if not customer or not customer.email_verified:
+        return jsonify({
+            "success": False, 
+            "message": "Please verify your email before placing an order."
+        }), 403
+
     payment_method = data.get('payment_method', 'COD')
     
     # For UPI orders, capture the UTR reference number submitted by the customer

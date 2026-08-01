@@ -6,5 +6,6 @@ from .party_order import PartyOrder
 from .payment import Payment
 from .customer import Customer
 from .password_reset import PasswordResetToken
+from .customer_otp import CustomerEmailOTP
 
-__all__ = ['db', 'Admin', 'Order', 'Reservation', 'PartyOrder', 'Payment', 'Customer', 'PasswordResetToken']
+__all__ = ['db', 'Admin', 'Order', 'Reservation', 'PartyOrder', 'Payment', 'Customer', 'PasswordResetToken', 'CustomerEmailOTP']

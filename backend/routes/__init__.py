@@ -6,6 +6,7 @@ from routes.payments import payments_bp
 from routes.analytics import analytics_bp
 from routes.menu import menu_bp
 from routes.settings import settings_bp
+from routes.customer_verification import customer_verification_bp
 
 def register_blueprints(app):
     """Registers all Blueprint packages with standard compatibility routes matching your frontend."""
@@ -20,3 +21,4 @@ def register_blueprints(app):
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
     app.register_blueprint(menu_bp, url_prefix='/api')
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
+    app.register_blueprint(customer_verification_bp)

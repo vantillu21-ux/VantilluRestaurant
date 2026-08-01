@@ -33,8 +33,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const [couponError, setCouponError] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [tableNo, setTableNo] = useState('');
+  
+  // OTP Verification States
+  const [otpInput, setOtpInput] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [otpTimer, setOtpTimer] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'UPI'>('COD');
   const [selectedUpiApp, setSelectedUpiApp] = useState<'PHONEPE' | 'GPAY' | 'PAYTM'>('PHONEPE');
   const [deliveryType, setDeliveryType] = useState<'Delivery' | 'DineIn' | 'Takeaway'>('Delivery');
@@ -107,6 +117,75 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [utrInput, setUtrInput] = useState('');
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+
+  // OTP Timer countdown
+  React.useEffect(() => {
+    if (otpTimer > 0) {
+      const interval = setInterval(() => setOtpTimer(prev => prev - 1), 1000);
+      return () => clearInterval(interval);
+    }
+  }, [otpTimer]);
+
+  const handleSendOtp = async () => {
+    if (!customerEmail || !customerPhone) {
+      setOtpError('Email and Phone Number are required to send OTP.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(customerEmail)) {
+      setOtpError('Please enter a valid email address.');
+      return;
+    }
+    
+    setOtpError('');
+    setIsSendingOtp(true);
+    try {
+      const res = await fetch(`${API_URL}/api/customer/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: customerEmail, phone: customerPhone })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setOtpSent(true);
+        setOtpTimer(60);
+      } else {
+        setOtpError(data.message || 'Failed to send OTP.');
+      }
+    } catch (err) {
+      setOtpError('Network error while sending OTP.');
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpInput || otpInput.length !== 6) {
+      setOtpError('Please enter the 6-digit OTP.');
+      return;
+    }
+    
+    setOtpError('');
+    setIsVerifyingOtp(true);
+    try {
+      const res = await fetch(`${API_URL}/api/customer/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: customerEmail, otp: otpInput })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setEmailVerified(true);
+        setOtpError('');
+      } else {
+        setOtpError(data.message || 'Invalid OTP.');
+      }
+    } catch (err) {
+      setOtpError('Network error while verifying OTP.');
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,15 +650,36 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                       </div>
                     </div>
 
+                    {/* Customer Email */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-white/50 uppercase flex justify-between">
+                        <span>Email *</span>
+                        {emailVerified && <span className="text-green-400 font-bold tracking-wider">✓ Verified</span>}
+                      </label>
+                      <div className="relative flex gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="email"
+                            required
+                            disabled={isSubmitting || emailVerified}
+                            value={customerEmail}
+                            onChange={(e) => setCustomerEmail(e.target.value)}
+                            placeholder="your email address"
+                            className="w-full bg-black/30 border border-white/10 focus:border-brand-gold text-xs px-3 py-2.5 rounded-xl outline-none disabled:opacity-60"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Customer Phone */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] text-white/50 uppercase">Phone Number</label>
+                      <label className="text-[10px] text-white/50 uppercase">Phone Number *</label>
                       <div className="relative">
                         <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
                         <input
                           type="tel"
                           required
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || emailVerified}
                           value={customerPhone}
                           onChange={(e) => setCustomerPhone(e.target.value)}
                           placeholder="10-digit mobile number"
@@ -587,6 +687,57 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                         />
                       </div>
                     </div>
+                    
+                    {/* OTP Verification Section */}
+                    {!emailVerified && (
+                      <div className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-3">
+                        {otpError && (
+                          <div className="text-[10px] text-red-400 font-semibold bg-red-500/10 p-2 rounded border border-red-500/20">
+                            {otpError}
+                          </div>
+                        )}
+                        
+                        {!otpSent ? (
+                          <button
+                            type="button"
+                            onClick={handleSendOtp}
+                            disabled={isSendingOtp || !customerEmail || !customerPhone}
+                            className="w-full bg-brand-gold/10 hover:bg-brand-gold/20 text-brand-gold border border-brand-gold/30 font-semibold py-2 rounded-xl text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
+                          >
+                            {isSendingOtp ? 'Sending OTP...' : 'Send OTP via Email'}
+                          </button>
+                        ) : (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              maxLength={6}
+                              placeholder="Enter 6-digit OTP"
+                              value={otpInput}
+                              onChange={(e) => setOtpInput(e.target.value)}
+                              className="w-full bg-black/40 border border-brand-gold/50 focus:border-brand-gold text-center text-sm tracking-widest px-3 py-2 rounded-xl outline-none text-white"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={handleVerifyOtp}
+                                disabled={isVerifyingOtp || otpInput.length !== 6}
+                                className="flex-1 bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-bold py-2 rounded-xl text-xs uppercase transition-colors disabled:opacity-50"
+                              >
+                                {isVerifyingOtp ? 'Verifying...' : 'Verify OTP'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSendOtp}
+                                disabled={isSendingOtp || otpTimer > 0}
+                                className="flex-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 font-semibold py-2 rounded-xl text-xs transition-colors disabled:opacity-50"
+                              >
+                                {otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Resend'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Delivery Address OR Table No based on service mode */}
                     {deliveryType === 'Delivery' ? (
@@ -658,10 +809,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                     {/* Checkout Button */}
                     <button
                       type="submit"
-                      disabled={isSubmitting || !customerPhone || customerPhone.length < 10 || !customerName}
+                      disabled={isSubmitting || !emailVerified || !customerPhone || customerPhone.length < 10 || !customerName}
                       className="w-full bg-brand-gold hover:bg-brand-gold/90 disabled:opacity-50 disabled:cursor-not-allowed text-brand-brown font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 active:scale-95 shadow-[0_4px_12px_rgba(212,175,55,0.2)] mt-6 text-sm"
                     >
-                      {isSubmitting ? (
+                      {!emailVerified ? (
+                        'Verify Email First'
+                      ) : isSubmitting ? (
                         'Processing order...'
                       ) : (
                         <>

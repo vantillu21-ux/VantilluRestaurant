@@ -11,6 +11,8 @@ class Customer(db.Model):
     name = db.Column(db.String(100), nullable=True)
     phone = db.Column(db.String(20), unique=True, nullable=False)
     email = db.Column(db.String(120), nullable=True)
+    email_verified = db.Column(db.Boolean, default=False)
+    phone_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=get_utc_now)
     last_login = db.Column(db.DateTime, default=get_utc_now, onupdate=get_utc_now)
 
