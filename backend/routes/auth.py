@@ -174,14 +174,13 @@ def create_user():
         permissions = data.get('permissions', 'all')
         
         existing_username = AdminRepository.get_by_username(username)
-        existing_email = AdminRepository.get_by_email(email) if hasattr(AdminRepository, 'get_by_email') else Admin.query.filter_by(email=email).first()
         
-        if existing_username or existing_email:
-            audit_logger.warning(f"[CREATE_USER] Duplicate username/email: {username} / {email}")
+        if existing_username:
+            audit_logger.warning(f"[CREATE_USER] Duplicate username: {username}")
             return jsonify({
                 "success": False,
                 "message": "Duplicate Account",
-                "details": "Username or email already exists"
+                "details": "Username already exists"
             }), 409
             
         audit_logger.info("[CREATE_USER] 2. Supabase client initialization starting")
@@ -300,22 +299,13 @@ def update_user(user_id):
         role = data['role']
         permissions = data['permissions']
         
-        # Check duplicates if username or email is changed
+        # Check duplicates if username is changed
         if username != user.username:
             if AdminRepository.get_by_username(username):
                 return jsonify({
                     "success": False,
                     "message": "Duplicate Account",
                     "details": "Username already exists"
-                }), 409
-                
-        if email != user.email:
-            existing_email = AdminRepository.get_by_email(email) if hasattr(AdminRepository, 'get_by_email') else Admin.query.filter_by(email=email).first()
-            if existing_email:
-                return jsonify({
-                    "success": False,
-                    "message": "Duplicate Account",
-                    "details": "Email already exists"
                 }), 409
                 
         updates = {
