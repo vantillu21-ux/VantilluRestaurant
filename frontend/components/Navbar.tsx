@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Menu, X, Calendar, ChefHat, Info, Sparkles, Users } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { checkIsRestaurantOpen, formatTime12h } from '../lib/timeUtils';
+import { API_URL } from '../lib/api';
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -20,6 +22,34 @@ export const Navbar: React.FC = () => {
       setIsAdmin(true);
     }
   }, []);
+
+  const [siteSettings, setSiteSettings] = useState<any>({});
+  const [isOpenNow, setIsOpenNow] = useState(true);
+
+  useEffect(() => {
+    // Fetch Settings
+    fetch(`${API_URL}/api/v1/settings`)
+      .then(res => res.json())
+      .then(data => {
+        setSiteSettings(data);
+        const opening = data.openingTime || "11:00";
+        const closing = data.closingTime || "23:00";
+        const tz = data.timezone || "Asia/Kolkata";
+        setIsOpenNow(checkIsRestaurantOpen(opening, closing, tz));
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    // Set interval to check availability every 60 seconds
+    const intervalId = setInterval(() => {
+      const opening = siteSettings.openingTime || "11:00";
+      const closing = siteSettings.closingTime || "23:00";
+      const tz = siteSettings.timezone || "Asia/Kolkata";
+      setIsOpenNow(checkIsRestaurantOpen(opening, closing, tz));
+    }, 60000);
+    return () => clearInterval(intervalId);
+  }, [siteSettings]);
 
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -77,6 +107,23 @@ export const Navbar: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex items-center gap-4">
+          {/* Availability Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/20 backdrop-blur-sm shadow-inner transition-colors duration-300">
+            {isOpenNow ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-green-400">Open Now</span>
+              </>
+            ) : (
+              <>
+                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">
+                  Closed. Opens at {siteSettings.openingTime ? formatTime12h(siteSettings.openingTime) : "11:00 AM"}
+                </span>
+              </>
+            )}
+          </div>
+
           {/* Table reservation Quick CTA (Desktop Only) */}
           <Link
             href="/reserve"

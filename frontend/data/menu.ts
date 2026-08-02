@@ -18,6 +18,7 @@ export interface MenuItem {
   jumboPrice?: number;
   isBestSeller?: boolean;
   isChefSpecial?: boolean;
+  is_available?: boolean;
 }
 
 export const menuItems: MenuItem[] = [];

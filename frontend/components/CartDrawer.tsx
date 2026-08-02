@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag, Trash2, ArrowRight, CheckCircle, MapPin, Phone, User, Ticket } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { checkIsRestaurantOpen, formatTime12h } from '../lib/timeUtils';
 import { API_URL } from '../lib/api';
 import dynamic from 'next/dynamic';
 
@@ -43,6 +44,33 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [tableNo, setTableNo] = useState('');
+  const [siteSettings, setSiteSettings] = useState<any>({});
+  const [isOpenNow, setIsOpenNow] = useState(true);
+  
+  useEffect(() => {
+    fetch(`${API_URL}/api/v1/settings`)
+      .then(res => res.json())
+      .then(data => {
+        setSiteSettings(data);
+        const opening = data.openingTime || "11:00";
+        const closing = data.closingTime || "23:00";
+        const tz = data.timezone || "Asia/Kolkata";
+        setIsOpenNow(checkIsRestaurantOpen(opening, closing, tz));
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    // Set interval to check availability every 60 seconds
+    const intervalId = setInterval(() => {
+      const opening = siteSettings.openingTime || "11:00";
+      const closing = siteSettings.closingTime || "23:00";
+      const tz = siteSettings.timezone || "Asia/Kolkata";
+      setIsOpenNow(checkIsRestaurantOpen(opening, closing, tz));
+    }, 60000);
+    return () => clearInterval(intervalId);
+  }, [siteSettings]);
+
   const [customerLat, setCustomerLat] = useState<number | null>(null);
   const [customerLng, setCustomerLng] = useState<number | null>(null);
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
@@ -325,15 +353,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       return;
     }
 
-    // Check Restaurant Timings (11:00 AM to 11:00 PM)
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours + minutes / 60;
-    
-    // 11:00 AM is 11.0, 11:00 PM is 23.0
-    if (currentTime < 11.0 || currentTime >= 23.0) {
-      alert('Restaurant is currently closed. We are open from 11:00 AM to 11:00 PM daily.');
+    // Note: The actual check is now handled via the disabled button
+    if (!isOpenNow) {
+      alert(`Restaurant is currently closed.\n\nOperational hours:\n${formatTime12h(siteSettings.openingTime || "11:00")} – ${formatTime12h(siteSettings.closingTime || "23:00")}`);
       return;
     }
 
@@ -360,8 +382,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
 
     const orderPayload = {
       customer_name: customerName,
+      customer_email: customerEmail,
       phone: customerPhone,
-      email: customerEmail,
       address: deliveryType === 'Delivery' ? customerAddress : '',
       items: cart.map(item => ({
         id: item.id,
@@ -937,10 +959,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                     {/* Checkout Button */}
                     <button
                       type="submit"
-                      disabled={isSubmitting || !emailVerified || !customerPhone || customerPhone.length < 10 || !customerName}
-                      className="w-full bg-brand-gold hover:bg-brand-gold/90 disabled:opacity-50 disabled:cursor-not-allowed text-brand-brown font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 active:scale-95 shadow-[0_4px_12px_rgba(212,175,55,0.2)] mt-6 text-sm"
+                      disabled={!isOpenNow || isSubmitting || !emailVerified || !customerPhone || customerPhone.length < 10 || !customerName}
+                      className={`w-full font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 shadow-[0_4px_12px_rgba(212,175,55,0.2)] mt-6 text-sm ${
+                        !isOpenNow 
+                          ? 'bg-red-500/20 text-red-300 border border-red-500/50 cursor-not-allowed'
+                          : 'bg-brand-gold hover:bg-brand-gold/90 disabled:opacity-50 disabled:cursor-not-allowed text-brand-brown cursor-pointer active:scale-95'
+                      }`}
                     >
-                      {!emailVerified ? (
+                      {!isOpenNow ? (
+                        `Closed (Opens ${siteSettings.openingTime ? formatTime12h(siteSettings.openingTime) : '11:00 AM'})`
+                      ) : !emailVerified ? (
                         'Verify Email First'
                       ) : isSubmitting ? (
                         'Processing order...'

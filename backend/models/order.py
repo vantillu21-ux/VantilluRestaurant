@@ -11,6 +11,7 @@ class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_number = db.Column(db.String(50), unique=True, nullable=True, index=True)
     customer_name = db.Column(db.String(100), nullable=False)
+    customer_email = db.Column(db.String(120), nullable=True)
     phone = db.Column(db.String(20), nullable=False, index=True)
     address = db.Column(db.String(255), nullable=True) 
     items = db.Column(db.Text, nullable=False) # JSON-serialized list of items
@@ -46,6 +47,7 @@ class Order(db.Model):
             'id': self.id,
             'order_number': self.order_number,
             'customer_name': self.customer_name,
+            'customer_email': self.customer_email,
             'phone': self.phone,
             'address': self.address,
             'items': parsed_items,

@@ -6,26 +6,51 @@ from repositories.order_repository import OrderRepository
 from middleware.auth import admin_required
 from schemas.order import validate_order_payload
 from utils.logger import logger, audit_logger
+from models.setting import AppSetting
+import zoneinfo
+from datetime import timezone
+import threading
+from services.email_service import EmailService
+import os
 
 orders_bp = Blueprint('orders', __name__)
 
-WORKING_HOURS_START = "11:00"
-WORKING_HOURS_END = "23:00"
-
 def is_within_working_hours():
     """Validates if the restaurant is within operational hours."""
-    now = datetime.now()
+    # Fetch configured timings and timezone
     try:
-        start_t = datetime.strptime(WORKING_HOURS_START, "%H:%M").time()
-        end_t = datetime.strptime(WORKING_HOURS_END, "%H:%M").time()
-        current_time = now.time()
+        opening_setting = AppSetting.query.get("openingTime")
+        closing_setting = AppSetting.query.get("closingTime")
+        tz_setting = AppSetting.query.get("timezone")
         
+        start_time_str = opening_setting.value if opening_setting else "11:00"
+        end_time_str = closing_setting.value if closing_setting else "23:00"
+        timezone_str = tz_setting.value if tz_setting else "Asia/Kolkata"
+        
+        # Get correct localized time
+        tz = zoneinfo.ZoneInfo(timezone_str)
+        now_utc = datetime.now(timezone.utc)
+        now_local = now_utc.astimezone(tz)
+        
+        start_t = datetime.strptime(start_time_str, "%H:%M").time()
+        end_t = datetime.strptime(end_time_str, "%H:%M").time()
+        current_time = now_local.time()
+        
+        # requested audit logging
+        logger.info(f"Order Validation | UTC: {now_utc.strftime('%H:%M')} | Local ({timezone_str}): {now_local.strftime('%H:%M')} | Configured: {start_time_str} - {end_time_str}")
+        
+        is_open = False
         if start_t <= end_t:
-            return start_t <= current_time <= end_t
+            is_open = start_t <= current_time <= end_t
         else: # operational hours cross midnight
-            return current_time >= start_t or current_time <= end_t
-    except Exception:
-        return True
+            is_open = current_time >= start_t or current_time <= end_t
+            
+        logger.info(f"Computed status: {'OPEN' if is_open else 'CLOSED'}")
+        
+        return is_open, start_time_str, end_time_str
+    except Exception as e:
+        logger.error(f"Error validating working hours: {e}")
+        return True, "11:00", "23:00"
 
 def format_time_str(time_str):
     try:
@@ -39,16 +64,20 @@ def format_time_str(time_str):
 def place_order():
     """Registers a customer order. Supports COD and UPI QR scan-and-pay."""
     # 1. Enforce working hours
-    if not is_within_working_hours():
-        start_str = format_time_str(WORKING_HOURS_START)
-        end_str = format_time_str(WORKING_HOURS_END)
-        return jsonify({"message": f"Restaurant is closed. Operational hours: {start_str} to {end_str}."}), 400
+    is_open, start_str_raw, end_str_raw = is_within_working_hours()
+    if not is_open:
+        start_str = format_time_str(start_str_raw)
+        end_str = format_time_str(end_str_raw)
+        return jsonify({
+            "success": False,
+            "message": "Restaurant is currently closed."
+        }), 403
         
     data = validate_order_payload(request.get_json())
     
     # Verify email and phone ownership before accepting order
     from models.customer import Customer
-    customer = Customer.query.filter_by(phone=data['phone'], email=data.get('email')).first()
+    customer = Customer.query.filter_by(phone=data['phone'], email=data.get('customer_email')).first()
     
     if not customer or not customer.email_verified:
         return jsonify({
@@ -77,6 +106,7 @@ def place_order():
         # 2. Save order to database
         new_order = OrderRepository.create(
             customer_name=data['customer_name'],
+            customer_email=data.get('customer_email'),
             phone=data['phone'],
             address=data.get('address'),
             items=json.dumps(data['items']),
@@ -104,6 +134,14 @@ def place_order():
             audit_logger.info(f"New UPI order #{new_order.id} from {data['phone']}. UTR submitted: {transaction_id}")
         else:
             logger.info(f"COD Order {new_order.id} placed successfully.")
+
+        # Trigger confirmation email in the background
+        admin_email = os.environ.get('EMAIL_FROM', 'vantillu21@gmail.com')
+        threading.Thread(
+            target=EmailService.send_order_confirmation_email,
+            args=(new_order.to_dict(), admin_email),
+            daemon=True
+        ).start()
 
         return jsonify({
             'success': True,
@@ -136,8 +174,8 @@ def update_order_status(order_id):
         
     new_status = data['status']
     valid_statuses = ['Pending', 'Accepted', 'Preparing', 'Ready', 'Served', 'Completed', 'Cancelled']
-    if new_status not in valid_statuses:
-        return jsonify({"success": False, "message": f"Invalid status value. Must be one of: {valid_statuses}"}), 400
+    if data['status'] not in valid_statuses:
+        return jsonify({"success": False, "message": "Invalid status."}), 400
         
     from extensions import db
     from models.order import Order
@@ -161,13 +199,12 @@ def update_order_status(order_id):
                 }), 409
             order.version = order.version + 1
 
-        # State machine transition validation
         allowed_transitions = {
-            'Pending': ['Accepted', 'Cancelled'],
-            'Accepted': ['Preparing', 'Cancelled'],
-            'Preparing': ['Ready'],
-            'Ready': ['Served'],
-            'Served': ['Completed'],
+            'Pending': ['Accepted', 'Preparing', 'Cancelled'],
+            'Accepted': ['Preparing', 'Ready', 'Cancelled'],
+            'Preparing': ['Ready', 'Completed', 'Cancelled'],
+            'Ready': ['Served', 'Completed', 'Cancelled'],
+            'Served': ['Completed', 'Cancelled'],
             'Completed': [],
             'Cancelled': []
         }
@@ -184,6 +221,14 @@ def update_order_status(order_id):
         db.session.commit()
         
         audit_logger.info(f"[UPDATE] Endpoint: /api/orders/{order_id}/status, Record ID: {order_id}, Old Status: {old_status}, New Status: {new_status}, DB commit success: True")
+        
+        if order.customer_email:
+            threading.Thread(
+                target=EmailService.send_order_status_email,
+                args=(order.to_dict(), new_status),
+                daemon=True
+            ).start()
+            
         return jsonify({
             "success": True,
             "message": f"Order status updated to {new_status} successfully!",

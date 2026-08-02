@@ -5,7 +5,7 @@ def validate_order_payload(data):
     if not data:
         raise ValidationException("Request payload is empty.")
         
-    required_fields = ['customer_name', 'phone', 'items', 'subtotal', 'grand_total']
+    required_fields = ['customer_name', 'customer_email', 'phone', 'items', 'subtotal', 'grand_total']
     for field in required_fields:
         if field not in data or data[field] is None:
             raise ValidationException(f"Field '{field}' is required.")

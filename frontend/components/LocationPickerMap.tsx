@@ -60,6 +60,9 @@ export default function LocationPickerMap({ initialLat, initialLng, onLocationCh
       <MapContainer 
         center={position} 
         zoom={16} 
+        scrollWheelZoom={false} 
+        zoomAnimation={false}
+        fadeAnimation={false} 
         style={{ height: '100%', width: '100%', zIndex: 1 }}
       >
         <TileLayer

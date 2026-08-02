@@ -9,5 +9,6 @@ from .password_reset import PasswordResetToken
 from .customer_otp import CustomerEmailOTP
 from .menu_item import MenuItem
 from .audit_log import AuditLog
+from .setting import AppSetting
 
-__all__ = ['db', 'Admin', 'Order', 'Reservation', 'PartyOrder', 'Payment', 'Customer', 'PasswordResetToken', 'CustomerEmailOTP', 'MenuItem', 'AuditLog']
+__all__ = ['db', 'Admin', 'Order', 'Reservation', 'PartyOrder', 'Payment', 'Customer', 'PasswordResetToken', 'CustomerEmailOTP', 'MenuItem', 'AuditLog', 'AppSetting']

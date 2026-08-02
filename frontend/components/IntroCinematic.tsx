@@ -155,25 +155,30 @@ export const IntroCinematic: React.FC<IntroCinematicProps> = ({ onComplete }) =>
     }
   }, [phase, onComplete]);
 
-  // Petals helper structure
-  const petals = Array.from({ length: 25 }).map((_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    delay: Math.random() * 4,
-    duration: Math.random() * 3 + 2,
-    rotate: Math.random() * 360,
-    size: Math.random() * 12 + 6,
-  }));
+  // Petals and Sparks states to avoid hydration mismatch
+  const [petals, setPetals] = useState<any[]>([]);
+  const [sparks, setSparks] = useState<any[]>([]);
 
-  // Spark particles helper
-  const sparks = Array.from({ length: 30 }).map((_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    bottom: `${Math.random() * 20}%`,
-    delay: Math.random() * 3,
-    duration: Math.random() * 2 + 2,
-    size: Math.random() * 4 + 2,
-  }));
+  useEffect(() => {
+    // Generate random items only on the client
+    setPetals(Array.from({ length: 25 }).map((_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      delay: Math.random() * 4,
+      duration: Math.random() * 3 + 2,
+      rotate: Math.random() * 360,
+      size: Math.random() * 12 + 6,
+    })));
+
+    setSparks(Array.from({ length: 30 }).map((_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      bottom: `${Math.random() * 20}%`,
+      delay: Math.random() * 3,
+      duration: Math.random() * 2 + 2,
+      size: Math.random() * 4 + 2,
+    })));
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070304] select-none">

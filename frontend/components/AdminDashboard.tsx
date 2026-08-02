@@ -2228,6 +2228,48 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="bg-black/30 p-5 rounded-2xl border border-white/5 space-y-4 shadow-inner relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/5 rounded-bl-full translate-x-10 -translate-y-10 group-hover:bg-brand-gold/10 transition-colors"></div>
+                  
+                  <h4 className="text-sm font-serif text-brand-gold uppercase tracking-widest border-b border-brand-gold/15 pb-2 mb-4">
+                    Restaurant Operations
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-white/50 uppercase">Opening Time (24h)</label>
+                      <input
+                        type="time"
+                        required
+                        value={webSettings.openingTime || ''}
+                        onChange={(e) => setWebSettings({...webSettings, openingTime: e.target.value})}
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white [color-scheme:dark]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-white/50 uppercase">Closing Time (24h)</label>
+                      <input
+                        type="time"
+                        required
+                        value={webSettings.closingTime || ''}
+                        onChange={(e) => setWebSettings({...webSettings, closingTime: e.target.value})}
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white [color-scheme:dark]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-white/50 uppercase">Timezone (IANA)</label>
+                      <input
+                        type="text"
+                        required
+                        value={webSettings.timezone || ''}
+                        onChange={(e) => setWebSettings({...webSettings, timezone: e.target.value})}
+                        placeholder="Asia/Kolkata"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 focus:border-brand-gold outline-none text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   className="w-full bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-bold py-3 rounded-xl transition-colors cursor-pointer uppercase tracking-wider text-xs shadow-lg mt-2"

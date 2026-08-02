@@ -30,6 +30,9 @@ export default function OrderMap({ customerLat, customerLng }: OrderMapProps) {
       <MapContainer 
         bounds={[restaurantPosition, customerPosition]} 
         boundsOptions={{ padding: [20, 20] }} 
+        scrollWheelZoom={false}
+        zoomAnimation={false}
+        fadeAnimation={false}
         style={{ height: '100%', width: '100%', zIndex: 1 }}
       >
         <TileLayer
