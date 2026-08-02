@@ -21,6 +21,8 @@ class Order(db.Model):
     grand_total = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(50), default='Pending') # Pending, Accepted, Preparing, Ready, Served, Completed, Cancelled
     order_type = db.Column(db.String(50), default='Delivery') # Delivery, Pickup, Dine-in
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     table_no = db.Column(db.String(20), nullable=True)
     payment_method = db.Column(db.String(50), default='COD') # COD, PhonePe
@@ -54,6 +56,8 @@ class Order(db.Model):
             'grand_total': self.grand_total,
             'status': self.status,
             'order_type': self.order_type,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
             'notes': self.notes,
             'table_no': self.table_no,
             'payment_method': self.payment_method,

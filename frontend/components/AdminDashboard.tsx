@@ -23,8 +23,15 @@ import {
   Globe,
   BookOpen,
   Settings,
-  AlertTriangle
+  AlertTriangle,
+  Flame
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const OrderMap = dynamic(() => import('./OrderMap'), {
+  ssr: false,
+  loading: () => <div className="h-48 w-full bg-black/40 animate-pulse rounded-xl flex items-center justify-center text-white/50 text-xs">Loading map...</div>
+});
 
 export const AdminDashboard: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -467,6 +474,24 @@ export const AdminDashboard: React.FC = () => {
       console.error(err);
       alert('Error deleting menu item.');
     }
+  };
+
+  const renderFlames = (level: string) => {
+    let count = 0;
+    if (level === 'Mild') count = 1;
+    else if (level === 'Medium') count = 2;
+    else if (level === 'Spicy') count = 3;
+    else if (level === 'Extra Spicy') count = 4;
+    
+    if (count === 0) return null;
+    
+    return (
+      <div className="flex gap-0.5 mt-0.5 pl-2">
+        {Array.from({ length: count }).map((_, i) => (
+          <Flame key={i} size={12} className="text-brand-orange fill-brand-orange" />
+        ))}
+      </div>
+    );
   };
 
   const handleToggleAvailability = async (item: any) => {
@@ -1081,18 +1106,26 @@ export const AdminDashboard: React.FC = () => {
                       filteredOrders.map((o) => (
                         <tr key={o.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                           <td className="p-4 font-bold text-white/70">#VT-{o.id}</td>
-                          <td className="p-4">
+                          <td className="p-4 min-w-[220px]">
                             <p className="font-semibold">{o.customer_name}</p>
                             <p className="text-[10px] text-white/40 mt-0.5">{o.phone}</p>
-                            {o.address && <p className="text-[10px] text-white/40 mt-1 max-w-[150px] truncate">{o.address}</p>}
+                            {o.address && <p className="text-[10px] text-white/40 mt-1 max-w-[200px] truncate" title={o.address}>{o.address}</p>}
                             {o.table_no && <p className="text-[10px] text-brand-gold mt-1">Table: {o.table_no}</p>}
+                            {o.order_type === 'Delivery' && o.latitude && o.longitude && (
+                              <div className="mt-2 w-[200px] pointer-events-auto">
+                                <OrderMap customerLat={o.latitude} customerLng={o.longitude} />
+                              </div>
+                            )}
                           </td>
-                          <td className="p-4 space-y-1">
+                          <td className="p-4 space-y-2">
                             {o.items.map((item: any, idx: number) => (
-                              <p key={idx} className="text-white/80">
-                                • {item.name} <span className="text-[10px] text-white/40">({item.spice_level}, {item.portion || 'Standard'})</span> x{item.quantity}
-                                {item.notes && <span className="text-[9px] text-brand-orange block pl-2 font-mono">"{item.notes}"</span>}
-                              </p>
+                              <div key={idx} className="text-white/80 text-sm">
+                                <p>
+                                  • {item.name} {item.portion && item.portion !== 'Standard' && <span className="text-[10px] text-white/40">({item.portion})</span>} x{item.quantity}
+                                </p>
+                                {renderFlames(item.spice_level)}
+                                {item.notes && <span className="text-[9px] text-brand-orange block pl-2 font-mono mt-1">"{item.notes}"</span>}
+                              </div>
                             ))}
                             {o.notes && <p className="text-[10px] text-brand-gold italic mt-2">Instruction: {o.notes}</p>}
                           </td>
@@ -1210,9 +1243,9 @@ export const AdminDashboard: React.FC = () => {
                       <div key={idx} className="flex justify-between items-start text-sm">
                         <div>
                           <p className="font-bold text-white leading-relaxed">
-                            {item.name} <span className="text-xs text-white/50 font-normal">x{item.quantity}</span>
+                            {item.name} {item.portion && item.portion !== 'Standard' && <span className="text-[10px] text-white/40 font-normal">({item.portion})</span>} <span className="text-xs text-white/50 font-normal ml-1">x{item.quantity}</span>
                           </p>
-                          <p className="text-[10px] text-brand-orange font-bold uppercase mt-0.5">{item.spice_level} Spice</p>
+                          {renderFlames(item.spice_level)}
                           {item.notes && <p className="text-[11px] text-yellow-400 font-mono mt-1">"{item.notes}"</p>}
                         </div>
                       </div>

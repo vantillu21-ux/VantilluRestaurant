@@ -5,6 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag, Trash2, ArrowRight, CheckCircle, MapPin, Phone, User, Ticket } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { API_URL } from '../lib/api';
+import dynamic from 'next/dynamic';
+
+const LocationPickerMap = dynamic(() => import('./LocationPickerMap'), {
+  ssr: false,
+  loading: () => <div className="w-full bg-black/40 animate-pulse rounded-xl flex items-center justify-center text-white/50 text-xs mt-3" style={{ height: '256px' }}>Loading map...</div>
+});
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -37,6 +43,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [tableNo, setTableNo] = useState('');
+  const [customerLat, setCustomerLat] = useState<number | null>(null);
+  const [customerLng, setCustomerLng] = useState<number | null>(null);
+  const [isFetchingAddress, setIsFetchingAddress] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [tempLat, setTempLat] = useState<number | null>(null);
+  const [tempLng, setTempLng] = useState<number | null>(null);
   
   // Idempotency Key for Orders
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
@@ -115,13 +127,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
             setLocationError(`You are not inside the Restaurant. You cannot place a Dine-In order. (${Math.round(distance)}m away)`);
           }
         } else if (type === 'Delivery') {
-          setDeliveryType('Delivery');
-          if (distance <= 2000) {
-            setDeliveryFee(0);
+          if (distance > 18000) {
+            setLocationError(`Sorry, we only deliver within 18km from the restaurant. Your distance is ${Math.round(distance/1000)}km.`);
+            setDeliveryType('Takeaway');
           } else {
-            const extraKms = (distance - 2000) / 1000;
-            const calcFee = 15 + (extraKms * 5); // 15 base + 5 per extra km
-            setDeliveryFee(Math.min(Math.max(Math.round(calcFee), 15), 30));
+            setDeliveryType('Delivery');
+            if (distance <= 2000) {
+              setDeliveryFee(0);
+            } else {
+              const extraKms = (distance - 2000) / 1000;
+              const calcFee = 15 + (extraKms * 5); // 15 base + 5 per extra km
+              setDeliveryFee(Math.min(Math.max(Math.round(calcFee), 15), 30));
+            }
           }
         }
       },
@@ -140,6 +157,66 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  };
+  
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    setIsFetchingAddress(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setTempLat(latitude);
+        setTempLng(longitude);
+        setShowMapPicker(true);
+        setIsFetchingAddress(false);
+      },
+      (err) => {
+        setIsFetchingAddress(false);
+        alert("Failed to get location. Please check permissions.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const handleConfirmLocation = async () => {
+    if (!tempLat || !tempLng) return;
+    setIsFetchingAddress(true);
+    
+    const distance = haversineDistance(tempLat, tempLng, RESTAURANT_LAT, RESTAURANT_LNG);
+    
+    if (distance > 18000) {
+      alert(`Sorry, we only deliver within 18km of the restaurant. Your selected pin is ${Math.round(distance/1000)}km away.`);
+      setIsFetchingAddress(false);
+      return;
+    }
+
+    setCustomerLat(tempLat);
+    setCustomerLng(tempLng);
+    
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${tempLat}&lon=${tempLng}&format=json`);
+      const data = await res.json();
+      if (data && data.display_name) {
+        const addressString = data.display_name.toLowerCase();
+        // if (!addressString.includes("hyderabad") && !addressString.includes("secunderabad") && !addressString.includes("ranga reddy")) {
+        //    alert("Sorry, we only deliver within Hyderabad.");
+        //    setIsFetchingAddress(false);
+        //    return;
+        // }
+        setCustomerAddress(data.display_name);
+        setShowMapPicker(false);
+      } else {
+        alert("Could not fetch address for this pin. Please enter manually.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error fetching address. Please enter manually.");
+    } finally {
+      setIsFetchingAddress(false);
+    }
   };
   
   // Checkout & Submission States
@@ -248,6 +325,31 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       return;
     }
 
+    // Check Restaurant Timings (11:00 AM to 11:00 PM)
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTime = hours + minutes / 60;
+    
+    // 11:00 AM is 11.0, 11:00 PM is 23.0
+    if (currentTime < 11.0 || currentTime >= 23.0) {
+      alert('Restaurant is currently closed. We are open from 11:00 AM to 11:00 PM daily.');
+      return;
+    }
+
+    // Check Location for Delivery one last time
+    if (deliveryType === 'Delivery') {
+      if (!customerLat || !customerLng) {
+        alert('Please select a precise location for delivery.');
+        return;
+      }
+      const distance = haversineDistance(customerLat, customerLng, RESTAURANT_LAT, RESTAURANT_LNG);
+      if (distance > 18000) {
+        alert(`Sorry, your location is ${Math.round(distance/1000)}km away. We only deliver within 18km.`);
+        return;
+      }
+    }
+
     if (paymentMethod === 'UPI') {
       setShowPhonePeModal(true);
       setIsSubmitting(false);
@@ -278,6 +380,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       order_type: deliveryType,
       notes: specialInstructions,
       table_no: deliveryType === 'DineIn' ? tableNo : '',
+      latitude: deliveryType === 'Delivery' ? customerLat : null,
+      longitude: deliveryType === 'Delivery' ? customerLng : null,
       payment_method: paymentMethod,
       idempotency_key: idempotencyKey
     };
@@ -344,6 +448,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       order_type: deliveryType,
       notes: specialInstructions,
       table_no: deliveryType === 'DineIn' ? tableNo : '',
+      latitude: deliveryType === 'Delivery' ? customerLat : null,
+      longitude: deliveryType === 'Delivery' ? customerLng : null,
       payment_method: 'UPI',
       transaction_id: utrInput,
       idempotency_key: idempotencyKey
@@ -723,7 +829,48 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                     {/* Delivery Address OR Table No based on service mode */}
                     {deliveryType === 'Delivery' ? (
                       <div className="space-y-1.5">
-                        <label className="text-[10px] text-white/50 uppercase">Delivery Address *</label>
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] text-white/50 uppercase">Delivery Address *</label>
+                          <button 
+                            type="button" 
+                            onClick={handleUseCurrentLocation}
+                            disabled={isFetchingAddress}
+                            className="text-[9px] text-brand-gold uppercase tracking-wider font-bold hover:underline disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                          >
+                            <MapPin size={10} />
+                            {isFetchingAddress ? 'Locating...' : 'Pick on Map'}
+                          </button>
+                        </div>
+                        {showMapPicker && tempLat && tempLng ? (
+                          <div className="bg-black/20 p-2 rounded-xl border border-white/5 mb-3 pointer-events-auto">
+                            <p className="text-[10px] text-brand-gold font-bold uppercase tracking-wider mb-2">Adjust your precise location:</p>
+                            <LocationPickerMap 
+                              initialLat={tempLat} 
+                              initialLng={tempLng} 
+                              onLocationChange={(lat, lng) => {
+                                setTempLat(lat);
+                                setTempLng(lng);
+                              }} 
+                            />
+                            <div className="flex gap-2 mt-3">
+                              <button 
+                                type="button" 
+                                onClick={handleConfirmLocation} 
+                                disabled={isFetchingAddress}
+                                className="flex-1 bg-brand-gold hover:bg-brand-gold/90 text-brand-brown font-bold py-2 rounded-lg text-xs uppercase tracking-wider disabled:opacity-50 cursor-pointer"
+                              >
+                                {isFetchingAddress ? 'Loading...' : 'Confirm Pin'}
+                              </button>
+                              <button 
+                                type="button" 
+                                onClick={() => setShowMapPicker(false)} 
+                                className="px-4 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10 font-bold py-2 rounded-lg text-xs uppercase tracking-wider cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="relative">
                           <MapPin size={13} className="absolute left-3 top-3 text-white/40" />
                           <textarea

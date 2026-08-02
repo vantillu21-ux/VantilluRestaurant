@@ -86,6 +86,8 @@ def place_order():
             discount=float(data.get('discount', 0.0)),
             grand_total=float(data['grand_total']),
             order_type=data.get('order_type', 'Delivery'),
+            latitude=data.get('latitude'),
+            longitude=data.get('longitude'),
             notes=data.get('notes'),
             table_no=data.get('table_no'),
             payment_method=payment_method,
