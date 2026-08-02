@@ -9,6 +9,7 @@ import { API_URL } from '../../lib/api';
 export default function MenuPage() {
   const [menuSearch, setMenuSearch] = useState('');
   const [menuFilter, setMenuFilter] = useState('All');
+  const [vegFilter, setVegFilter] = useState('All');
   const [menuSort, setMenuSort] = useState('Popularity');
   const [liveMenuItems, setLiveMenuItems] = useState<MenuItem[]>(menuItems);
   const [menuLoading, setMenuLoading] = useState(false);
@@ -60,14 +61,16 @@ export default function MenuPage() {
       const matchesFilter = matchesCuisineFilter(item, menuFilter);
 
       // Quick filter buttons for Veg/Non-Veg
-      const isVegTab = menuFilter === 'Veg';
-      const isNonVegTab = menuFilter === 'Non-Veg';
+      const isVegTab = vegFilter === 'Veg';
+      const isNonVegTab = vegFilter === 'Non-Veg';
       const matchesVegFilter = 
         (!isVegTab && !isNonVegTab) ||
         (isVegTab && item.isVeg) ||
         (isNonVegTab && !item.isVeg);
 
-      return matchesSearch && matchesFilter && matchesVegFilter;
+      const isAvailable = item.is_available !== false;
+
+      return matchesSearch && matchesFilter && matchesVegFilter && isAvailable;
     })
     .sort((a, b) => {
       if (menuSort === 'Price: Low to High') {
@@ -127,9 +130,6 @@ export default function MenuPage() {
           Vantillu Menu Catalog
         </h1>
         <div className="w-16 h-[2px] bg-brand-gold mx-auto mt-2" />
-        <p className="text-white/60 text-xs md:text-sm max-w-md mx-auto leading-relaxed">
-          Order our delicious dishes cooked in woodfire, clay ovens, and prepared with pure love.
-        </p>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 space-y-8">
@@ -182,23 +182,23 @@ export default function MenuPage() {
           </div>
 
           {/* Quick Veg/Non-Veg Filters */}
-          <div className="flex gap-2 w-full md:w-auto justify-start md:justify-center">
-            {['All', 'Veg', 'Non-Veg'].includes(menuFilter) && (
+          {(menuFilter === 'Biryani' || menuSearch !== '') && (
+            <div className="flex gap-2 w-full md:w-auto justify-start md:justify-center">
               <div className="flex bg-black/40 border border-white/10 p-0.5 rounded-xl">
                 {['All', 'Veg', 'Non-Veg'].map((mode) => (
                   <button
                     key={mode}
-                    onClick={() => setMenuFilter(mode)}
+                    onClick={() => setVegFilter(mode)}
                     className={`py-1.5 px-4 text-[10px] uppercase font-bold tracking-widest rounded-lg cursor-pointer transition-all ${
-                      menuFilter === mode ? 'bg-brand-gold text-brand-brown' : 'text-white/60 hover:text-white'
+                      vegFilter === mode ? 'bg-brand-gold text-brand-brown' : 'text-white/60 hover:text-white'
                     }`}
                   >
                     {mode}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Sorting */}
           <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
@@ -267,6 +267,8 @@ export default function MenuPage() {
                       jumboPrice={item.jumboPrice}
                       isBestSeller={item.isBestSeller}
                       isChefSpecial={item.isChefSpecial}
+                      category={item.category}
+                      cuisine={item.cuisine}
                     />
                   ))}
                 </div>

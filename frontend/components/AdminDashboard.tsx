@@ -469,6 +469,44 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleToggleAvailability = async (item: any) => {
+    const newStatus = item.is_available !== false ? false : true;
+    try {
+      const payload = {
+        name: item.name,
+        price: item.price || 0,
+        isVeg: item.isVeg,
+        category: item.category,
+        cuisine: item.cuisine,
+        description: item.description,
+        spiceLevel: item.spiceLevel,
+        prepTime: item.prepTime,
+        portionType: item.portionType,
+        halfPrice: item.halfPrice,
+        fullPrice: item.fullPrice,
+        singlePrice: item.singlePrice,
+        is_available: newStatus
+      };
+      const res = await fetch(`${API_URL}/api/v1/admin/menu/${item.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setMenuItems(prev => prev.map(m => m.id === item.id ? { ...m, is_available: newStatus } : m));
+      } else {
+        alert(`Failed to update availability: ${resData.message}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating availability.');
+    }
+  };
+
   const hasPermission = (tabId: string) => {
     const privilegedTabs = ['menu', 'settings', 'view_website'];
     const privilegedRoles = ['Owner', 'Admin', 'Manager'];
@@ -1052,7 +1090,7 @@ export const AdminDashboard: React.FC = () => {
                           <td className="p-4 space-y-1">
                             {o.items.map((item: any, idx: number) => (
                               <p key={idx} className="text-white/80">
-                                • {item.name} <span className="text-[10px] text-white/40">({item.spice_level})</span> x{item.quantity}
+                                • {item.name} <span className="text-[10px] text-white/40">({item.spice_level}, {item.portion || 'Standard'})</span> x{item.quantity}
                                 {item.notes && <span className="text-[9px] text-brand-orange block pl-2 font-mono">"{item.notes}"</span>}
                               </p>
                             ))}
@@ -1776,6 +1814,7 @@ export const AdminDashboard: React.FC = () => {
                         <th className="p-4 uppercase font-semibold">Category</th>
                         <th className="p-4 uppercase font-semibold">Cuisine</th>
                         <th className="p-4 uppercase font-semibold">Price</th>
+                        <th className="p-4 uppercase font-semibold text-center">Availability</th>
                         <th className="p-4 uppercase font-semibold text-center">Actions</th>
                       </tr>
                     </thead>
@@ -1809,6 +1848,14 @@ export const AdminDashboard: React.FC = () => {
                                 <td className="p-4 text-brand-gold font-bold">{item.cuisine}</td>
                                 <td className="p-4 font-serif font-bold text-white">
                                   {item.price ? `₹${item.price}` : 'Portions'}
+                                </td>
+                                <td className="p-4 text-center">
+                                  <button
+                                    onClick={() => handleToggleAvailability(item)}
+                                    className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${item.is_available !== false ? 'bg-green-500' : 'bg-red-500'}`}
+                                  >
+                                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${item.is_available !== false ? 'translate-x-5' : 'translate-x-1.5'}`} />
+                                  </button>
                                 </td>
                                 <td className="p-4 text-center">
                                   <div className="flex gap-2 justify-center">

@@ -437,61 +437,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* 3. REVIEWS / TESTIMONIALS */}
-          <section className="py-24 px-6 md:px-12 lg:px-24 bg-[#0c0607] relative border-t border-white/5">
-            <div className="max-w-7xl mx-auto space-y-12">
-              <div className="text-center space-y-3">
-                <span className="text-brand-gold text-xs uppercase tracking-[0.3em] font-semibold">Kind Words</span>
-                <h2 className="font-serif text-white text-3xl md:text-5xl font-bold tracking-wide">
-                  Served with Love
-                </h2>
-                <div className="w-16 h-[2px] bg-brand-gold mx-auto mt-2" />
-              </div>
 
-              {/* Review cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  {
-                    name: "Srinivas Rao",
-                    review: "The Natu Kodi Pulao tastes exactly like what my grandmother used to make in our village in West Godavari. The woodfire smokiness is unmistakable. Brilliant experience!",
-                    rating: 5,
-                    title: "Authentic Earthen Simmer"
-                  },
-                  {
-                    name: "Harika Reddy",
-                    review: "A masterpiece restaurant experience. The cinematic welcoming, the gorgeous 3D visualizers, and the food cards made me hungry instantly. The Gongura Mutton Biryani is highly recommended!",
-                    rating: 5,
-                    title: "Best Biryani in Hyderabad"
-                  },
-                  {
-                    name: "Anil Kumar",
-                    review: "Pure hospitality. From the traditional Namaste opening of the doors to the warm banana leaf and brass presentations, Vantillu respects its Telugu roots. 5 stars all the way.",
-                    rating: 5,
-                    title: "Exquisite Village Dining"
-                  }
-                ].map((rev, i) => (
-                  <div
-                    key={i}
-                    className="bg-[#2E1A1C]/50 border border-brand-gold/20 hover:border-brand-gold/60 p-6 rounded-3xl relative backdrop-blur-md shadow-xl transition-all duration-300 hover:-translate-y-1.5"
-                  >
-                    <div className="flex gap-1 mb-4">
-                      {[...Array(rev.rating)].map((_, s) => (
-                        <Star key={s} size={14} className="fill-brand-gold text-brand-gold" />
-                      ))}
-                    </div>
-                    <h4 className="font-serif text-white font-bold mb-2">"{rev.title}"</h4>
-                    <p className="text-white/60 text-xs leading-relaxed mb-6 font-light">
-                      {rev.review}
-                    </p>
-                    <div className="border-t border-white/5 pt-4 text-xs font-semibold text-brand-gold flex items-center justify-between">
-                      <span>{rev.name}</span>
-                      <span className="text-[10px] text-white/40 font-normal">Verified Diner</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
 
           {/* CTA Banner linking to bookings */}
           <section className="py-20 px-6 bg-gradient-to-r from-brand-brown via-[#190d0e] to-brand-brown border-t border-white/5 text-center space-y-6">

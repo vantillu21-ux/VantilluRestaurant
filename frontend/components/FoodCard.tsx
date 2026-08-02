@@ -23,6 +23,8 @@ interface FoodCardProps {
   jumboPrice?: number;
   isBestSeller?: boolean;
   isChefSpecial?: boolean;
+  category?: string;
+  cuisine?: string;
 }
 
 export const FoodCard: React.FC<FoodCardProps> = ({
@@ -43,6 +45,8 @@ export const FoodCard: React.FC<FoodCardProps> = ({
   jumboPrice,
   isBestSeller,
   isChefSpecial,
+  category,
+  cuisine,
 }) => {
   const { cart, addToCart, updateQuantity } = useCart();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -246,7 +250,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                     }`}
                     title={`Family Pack (₹${familyPrice})`}
                   >
-                    Fam (₹{familyPrice})
+                    Family (₹{familyPrice})
                   </button>
                   <button
                     type="button"
@@ -256,7 +260,7 @@ export const FoodCard: React.FC<FoodCardProps> = ({
                     }`}
                     title={`Jumbo Serving (₹${jumboPrice})`}
                   >
-                    Jum (₹{jumboPrice})
+                    Jumbo (₹{jumboPrice})
                   </button>
                 </>
               )}
@@ -311,40 +315,41 @@ export const FoodCard: React.FC<FoodCardProps> = ({
         {/* Metadata & Spice Level */}
         <div className="flex flex-wrap justify-between items-center gap-3 border-t border-white/5 pt-4 mb-4">
           <div className="flex items-center gap-1.5 text-white/50 text-xs">
-            <Clock size={13} className="text-brand-gold" />
-            {prepTime}
+            {/* prepTime removed */}
           </div>
 
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-white/40 uppercase tracking-wider mr-1">Spice:</span>
-            {isAdmin ? (
-              <span className="text-xs font-semibold text-brand-orange uppercase tracking-wider">
-                {spiceLevel}
-              </span>
-            ) : (
-              ['Mild', 'Medium', 'Spicy', 'Extra Spicy'].map((lvl) => {
-                const count = getSpiceFlames(lvl);
-                const isActive = selectedSpice === lvl;
-                return (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => setSelectedSpice(lvl as any)}
-                    title={lvl}
-                    className={`p-1 rounded-md transition-colors cursor-pointer ${
-                      isActive ? 'bg-brand-orange/20 text-brand-orange border border-brand-orange/40' : 'text-white/30 hover:text-white/70'
-                    }`}
-                  >
-                    <div className="flex gap-0.5">
-                      {[...Array(Math.min(count, 3))].map((_, f) => (
-                        <Flame key={f} size={11} className={isActive ? 'fill-brand-orange' : ''} />
-                      ))}
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
+          {category !== 'Sweets' && cuisine !== 'Sweets' && (
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-white/40 uppercase tracking-wider mr-1">Spice:</span>
+              {isAdmin ? (
+                <span className="text-xs font-semibold text-brand-orange uppercase tracking-wider">
+                  {spiceLevel}
+                </span>
+              ) : (
+                ['Mild', 'Medium', 'Spicy', 'Extra Spicy'].map((lvl) => {
+                  const count = getSpiceFlames(lvl);
+                  const isActive = selectedSpice === lvl;
+                  return (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => setSelectedSpice(lvl as any)}
+                      title={lvl}
+                      className={`p-1 rounded-md transition-colors cursor-pointer ${
+                        isActive ? 'bg-brand-orange/20 text-brand-orange border border-brand-orange/40' : 'text-white/30 hover:text-white/70'
+                      }`}
+                    >
+                      <div className="flex gap-0.5">
+                        {[...Array(Math.min(count, 3))].map((_, f) => (
+                          <Flame key={f} size={11} className={isActive ? 'fill-brand-orange' : ''} />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
 
         {/* Notes input */}
