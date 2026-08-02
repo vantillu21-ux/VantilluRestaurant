@@ -33,22 +33,41 @@ export default function MenuPage() {
       .finally(() => setMenuLoading(false));
   }, []);
 
-
-  // The actual cuisines and signature groupings
+  // The actual categories for the menu tabs
   const categories = [
     'All',
     'Biryani',
-    'Chinese',
-    'Indian',
-    'Tandoor',
+    'Chicken Starters',
+    'Tandoori Bhatti Starters',
+    'Seafood Starters',
+    'Veg Starters',
+    'Non-Veg Curries',
+    'Egg Specials',
+    'Veg Curries',
+    'Roti',
+    'Fried Rice',
+    'Noodles',
+    'Soup',
     'Sweets',
     'French Fries'
   ];
 
-  // Helper to map item category to cuisine tabs
-  const matchesCuisineFilter = (item: MenuItem, filter: string) => {
+  // Map the raw category string to a friendly tab title
+  const tabTitles: Record<string, string> = {
+    'Chicken Starters': 'Chicken Starters',
+    'Tandoori Bhatti Starters': 'Kebabs & Tandoori',
+    'Seafood Starters': 'Seafood Starters',
+    'Veg Starters': 'Veg Starters',
+    'Non-Veg Curries': 'Non-Veg Curries',
+    'Egg Specials': 'Egg Specials',
+    'Veg Curries': 'Veg Curries',
+    'Roti': 'Breads (Roti)',
+  };
+
+  // Helper to map item category to tabs
+  const matchesCategoryFilter = (item: MenuItem, filter: string) => {
     if (filter === 'All') return true;
-    return item.cuisine === filter;
+    return item.category === filter;
   };
 
   // Search & Filter & Sort algorithm — runs against live API data (seeded with static cache)
@@ -58,7 +77,7 @@ export default function MenuPage() {
         item.name.toLowerCase().includes(menuSearch.toLowerCase()) || 
         item.description.toLowerCase().includes(menuSearch.toLowerCase());
       
-      const matchesFilter = matchesCuisineFilter(item, menuFilter);
+      const matchesFilter = matchesCategoryFilter(item, menuFilter);
 
       // Quick filter buttons for Veg/Non-Veg
       const isVegTab = vegFilter === 'Veg';
@@ -148,8 +167,8 @@ export default function MenuPage() {
         )}
         
         {/* Category Horizontal Scrolling Navigation */}
-        <div className="flex border-b border-white/5 pb-2 overflow-x-auto scrollbar-none justify-start md:justify-center">
-          <div className="flex gap-2.5 pb-2 whitespace-nowrap">
+        <div className="border-b border-white/5 pb-2 overflow-x-auto scrollbar-none">
+          <div className="flex gap-2.5 pb-2 w-max md:w-full md:flex-wrap md:justify-center">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -161,7 +180,7 @@ export default function MenuPage() {
                     : 'bg-brand-brown/25 text-white/60 border-white/5 hover:border-brand-gold/40 hover:text-brand-gold'}
                 `}
               >
-                {cat}
+                {tabTitles[cat] || cat}
               </button>
             ))}
           </div>
