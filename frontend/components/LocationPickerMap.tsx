@@ -53,11 +53,19 @@ export default function LocationPickerMap({ initialLat, initialLng, onLocationCh
     onLocationChange(lat, lng);
   };
 
+  const [mapId, setMapId] = useState('');
 
+  // avoid SSR and Strict mode leaflet reuse container error
+  useEffect(() => {
+    setMapId(Math.random().toString(36).substring(7));
+  }, []);
+
+  if (!mapId) return null;
 
   return (
     <div className="w-full rounded-xl overflow-hidden border border-brand-gold/30 mt-3 relative" style={{ height: '256px', zIndex: 0 }}>
       <MapContainer 
+        key={mapId}
         center={position} 
         zoom={16} 
         scrollWheelZoom={false} 

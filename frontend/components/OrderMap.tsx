@@ -25,9 +25,18 @@ export default function OrderMap({ customerLat, customerLng }: OrderMapProps) {
   const restaurantPosition: [number, number] = [RESTAURANT_LAT, RESTAURANT_LNG];
   const customerPosition: [number, number] = [customerLat, customerLng];
 
+  const [mapId, setMapId] = useState('');
+
+  useEffect(() => {
+    setMapId(Math.random().toString(36).substring(7));
+  }, []);
+
+  if (!mapId) return null;
+
   return (
     <div className="h-48 w-full rounded-xl overflow-hidden border border-white/10 mt-3 z-0 relative" style={{ zIndex: 0 }}>
       <MapContainer 
+        key={mapId}
         bounds={[restaurantPosition, customerPosition]} 
         boundsOptions={{ padding: [20, 20] }} 
         scrollWheelZoom={false}

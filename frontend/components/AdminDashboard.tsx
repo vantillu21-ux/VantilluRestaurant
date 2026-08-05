@@ -24,7 +24,8 @@ import {
   BookOpen,
   Settings,
   AlertTriangle,
-  Flame
+  Flame,
+  Printer
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -750,6 +751,87 @@ export const AdminDashboard: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  // Print Order Details
+  const handlePrintOrder = (order: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert("Please allow popups to print orders.");
+      return;
+    }
+    
+    const itemsHtml = order.items.map((item: any) => `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">
+        <div>
+          <strong>${item.name}</strong> ${item.portion && item.portion !== 'Standard' ? `(${item.portion})` : ''} x${item.quantity}<br/>
+          <small>${item.spice_level ? `Spice: ${item.spice_level}` : ''}</small>
+          ${item.notes ? `<br/><small>Notes: ${item.notes}</small>` : ''}
+        </div>
+      </div>
+    `).join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>Order Receipt - #VT-${order.id}</title>
+          <style>
+            body { font-family: 'Courier New', Courier, monospace; padding: 20px; font-size: 14px; color: #000; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+            .section { margin-bottom: 15px; }
+            h2 { margin: 0 0 5px 0; font-size: 20px; }
+            h3 { margin: 0 0 5px 0; font-size: 16px; }
+            .total { font-size: 18px; font-weight: bold; text-align: right; margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
+            @media print {
+              @page { margin: 0; }
+              body { padding: 10px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>VANTILLU RESTAURANT</h2>
+            <div>Order #VT-${order.id} | ${order.order_type}</div>
+            <div>Status: ${order.status}</div>
+          </div>
+          
+          <div class="section">
+            <h3>Customer Details:</h3>
+            <div>Name: ${order.customer_name}</div>
+            <div>Phone: ${order.phone}</div>
+            ${order.address ? `<div>Address: ${order.address}</div>` : ''}
+            ${order.table_no ? `<div>Table: ${order.table_no}</div>` : ''}
+          </div>
+          
+          <div class="section">
+            <h3>Order Items:</h3>
+            ${itemsHtml}
+          </div>
+          
+          ${order.notes ? `
+          <div class="section">
+            <h3>Order Instructions:</h3>
+            <p>${order.notes}</p>
+          </div>
+          ` : ''}
+          
+          <div class="total">
+            Grand Total: ₹${order.grand_total}<br/>
+            <span style="font-size: 12px; font-weight: normal;">Payment: ${order.payment_method || 'COD'}</span>
+          </div>
+          
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   // Filtered orders selector
   const filteredOrders = orders.filter(o => {
     // Delivery boy can only view Delivery orders
@@ -1112,8 +1194,16 @@ export const AdminDashboard: React.FC = () => {
                             {o.address && <p className="text-[10px] text-white/40 mt-1 max-w-[200px] truncate" title={o.address}>{o.address}</p>}
                             {o.table_no && <p className="text-[10px] text-brand-gold mt-1">Table: {o.table_no}</p>}
                             {o.order_type === 'Delivery' && o.latitude && o.longitude && (
-                              <div className="mt-2 w-[200px] pointer-events-auto">
+                              <div className="mt-2 w-[200px] pointer-events-auto flex flex-col gap-2">
                                 <OrderMap customerLat={o.latitude} customerLng={o.longitude} />
+                                <a 
+                                  href={`https://www.google.com/maps/dir/?api=1&destination=${o.latitude},${o.longitude}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] bg-brand-gold/10 hover:bg-brand-gold/20 text-brand-gold border border-brand-gold/30 rounded py-1 px-2 text-center transition-colors flex items-center justify-center gap-1"
+                                >
+                                  View Route in Map
+                                </a>
                               </div>
                             )}
                           </td>
@@ -1204,6 +1294,15 @@ export const AdminDashboard: React.FC = () => {
                                       className="border border-red-500/30 hover:bg-red-500 hover:text-white text-red-400 py-1 px-2.5 rounded-lg cursor-pointer transition-all"
                                     >
                                       Cancel
+                                    </button>
+                                  )}
+                                  {(userRole === 'Admin' || userRole === 'Manager' || userRole === 'Owner') && (
+                                    <button
+                                      onClick={() => handlePrintOrder(o)}
+                                      className="bg-brand-gold/20 hover:bg-brand-gold/40 text-brand-gold py-1 px-2.5 rounded-lg cursor-pointer transition-all flex items-center gap-1 border border-brand-gold/30"
+                                      title="Print Order"
+                                    >
+                                      <Printer size={14} /> Print
                                     </button>
                                   )}
                                 </>
