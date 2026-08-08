@@ -1,5 +1,6 @@
 'use client';
-import { useState, useRef, useMemo } from 'react';
+import { useRef, useMemo } from 'react';
+import React, { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -64,24 +65,24 @@ export default function LocationPickerMap({ initialLat, initialLng, onLocationCh
 
   return (
     <div className="w-full rounded-xl overflow-hidden border border-brand-gold/30 mt-3 relative" style={{ height: '256px', zIndex: 0 }}>
-      <MapContainer 
+      <MapContainer
         key={mapId}
-        center={position} 
-        zoom={16} 
-        scrollWheelZoom={false} 
+        center={position}
+        zoom={16}
+        scrollWheelZoom={false}
         zoomAnimation={false}
-        fadeAnimation={false} 
+        fadeAnimation={false}
         style={{ height: '100%', width: '100%', zIndex: 1 }}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
-        
+
         {/* Actual GPS Location */}
-        <CircleMarker 
-          center={gpsPosition} 
-          radius={7} 
+        <CircleMarker
+          center={gpsPosition}
+          radius={7}
           pathOptions={{ color: 'white', fillColor: '#3b82f6', fillOpacity: 1, weight: 2 }}
         >
           <Popup minWidth={90}>
@@ -90,7 +91,7 @@ export default function LocationPickerMap({ initialLat, initialLng, onLocationCh
         </CircleMarker>
 
         <MapEvents onMapClick={handleMapClick} />
-        <Marker 
+        <Marker
           draggable={true}
           eventHandlers={{
             dragend() {
